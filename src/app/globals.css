@@ -197,49 +197,70 @@ button {
   margin-bottom: var(--space-2);
 }
 
-.date-scroll {
+.calendar-container {
   display: flex;
-  gap: 10px;
-  overflow-x: auto;
-  padding-bottom: var(--space-3);
-  scrollbar-width: none; /* Firefox */
-}
-.date-scroll::-webkit-scrollbar {
-  display: none; /* Safari and Chrome */
+  flex-direction: column;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
 }
 
-.date-chip {
-  padding: 12px 16px;
+.calendar-header-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+  text-align: center;
+}
+
+.calendar-weekday {
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  color: var(--text-muted);
+}
+
+.calendar-grid {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  gap: 8px;
+}
+
+.calendar-cell {
+  padding: 10px 4px;
   border-radius: var(--radius-md);
-  min-width: 76px;
   border: 1px solid var(--border);
   background: var(--bg-surface);
-  color: inherit;
+  color: var(--text-main);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
   cursor: pointer;
   transition: all 0.2s;
-  flex-shrink: 0;
+  position: relative;
 }
-.date-chip.active {
+.calendar-cell.active {
   border: 2px solid var(--primary);
   background: var(--primary);
   color: white;
 }
-.date-chip-day {
-  font-size: 0.75rem;
-  font-weight: 600;
+.calendar-cell.disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+  background: var(--bg-main);
+  border-color: transparent;
+}
+.calendar-cell.today {
+  border-color: var(--accent);
+}
+.cal-day-num {
+  font-size: 1.1rem;
+  font-weight: 700;
+}
+.cal-month-label {
+  font-size: 0.65rem;
   opacity: 0.8;
-}
-.date-chip-num {
-  font-size: 1.3rem;
-  font-weight: 800;
-}
-.date-chip-month {
-  font-size: 0.7rem;
-  opacity: 0.7;
+  font-weight: 600;
+  text-transform: uppercase;
 }
 
 .court-card {

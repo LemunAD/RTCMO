@@ -16,19 +16,20 @@ import {
   AlertCircle,
   Loader2,
 } from "lucide-react";
-import { format, addDays } from "date-fns";
+import { format, addDays, startOfWeek, endOfWeek, eachDayOfInterval, startOfDay, isBefore, isAfter } from "date-fns";
+import { fr } from "date-fns/locale";
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 
 const COURTS = [
-  { id: 1, name: "Padel Court 1", tag: "Panoramic View", type: "Indoor" },
-  { id: 2, name: "Padel Court 2", tag: "Central Court",  type: "Indoor" },
-  { id: 3, name: "Padel Court 3", tag: "Garden Side",    type: "Outdoor" },
+  { id: 1, name: "Terrain de Padel 1", tag: "Vue Panoramique", type: "Intérieur" },
+  { id: 2, name: "Terrain de Padel 2", tag: "Court Central",  type: "Intérieur" },
+  { id: 3, name: "Terrain de Padel 3", tag: "Côté Jardin",    type: "Extérieur" },
 ];
 
 const TIME_SLOTS = [
-  "09:00", "10:30", "12:00", "13:30",
-  "15:00", "16:30", "18:00", "19:30", "21:00",
+  "08:00", "09:30", "11:00", "12:30", "14:00", 
+  "15:30", "17:00", "18:30", "20:00", "21:30"
 ];
 
 const PRICE_PER_PERSON = 60; // MAD
@@ -163,10 +164,14 @@ export default function BookingFlow() {
   const [bookedSlots, setBookedSlots]     = useState<Set<string>>(new Set());
   const [loadingSlots, setLoadingSlots]   = useState(false);
 
-  const upcomingDays = useMemo(
-    () => Array.from({ length: 7 }).map((_, i) => addDays(new Date(), i)),
-    []
-  );
+  const today = startOfDay(new Date());
+  const maxDate = addDays(today, 29); // 30 days total
+
+  const calendarDays = useMemo(() => {
+    const calendarStart = startOfWeek(today, { weekStartsOn: 1 });
+    const calendarEnd = endOfWeek(maxDate, { weekStartsOn: 1 });
+    return eachDayOfInterval({ start: calendarStart, end: calendarEnd });
+  }, [today, maxDate]);
 
   const totalPrice = playerCount * PRICE_PER_PERSON;
   const selectedCourtData = COURTS.find((c) => c.id === selectedCourt);
@@ -199,6 +204,7 @@ export default function BookingFlow() {
   // Refetch when entering step 2 or when court/date change while on step 2
   useEffect(() => {
     if (step === 2 && selectedCourt) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       fetchAvailability(selectedCourt, selectedDate);
     }
   }, [step, selectedCourt, selectedDate, fetchAvailability]);
@@ -232,7 +238,7 @@ export default function BookingFlow() {
           setStep(2); // Go back to time selection
           if (selectedCourt) fetchAvailability(selectedCourt, selectedDate);
         } else {
-          setError(data.error || "Something went wrong. Please try again.");
+          setError(data.error || "Un problème est survenu. Veuillez réessayer.");
         }
         return;
       }
@@ -240,7 +246,7 @@ export default function BookingFlow() {
       setBookingRef(data.bookingRef);
       setStep(TOTAL_STEPS + 1);
     } catch {
-      setError("Network error. Please check your connection and try again.");
+      setError("Erreur réseau. Veuillez vérifier votre connexion et réessayer.");
     } finally {
       setIsBooking(false);
     }
@@ -271,7 +277,7 @@ export default function BookingFlow() {
             <div className="logo-mark">P</div>
             <div>
               <div style={{ fontWeight: 800, fontSize: "1.05rem", color: "white", lineHeight: 1.2 }}>RTCMO</div>
-              <div style={{ fontSize: "0.7rem", opacity: 0.75, letterSpacing: "0.08em", textTransform: "uppercase" }}>Padel Booking</div>
+              <div style={{ fontSize: "0.7rem", opacity: 0.75, letterSpacing: "0.08em", textTransform: "uppercase" }}>Réservation de Padel</div>
             </div>
           </div>
           {step <= TOTAL_STEPS && (
@@ -312,24 +318,33 @@ export default function BookingFlow() {
 
                   {/* Date row */}
                   <p className="section-label">Select Date</p>
-                  <div className="date-scroll">
-                    {upcomingDays.map((date, i) => {
-                      const active = selectedDate.toDateString() === date.toDateString();
-                      const isToday = i === 0;
-                      return (
-                        <button
-                          key={i}
-                          onClick={() => setSelectedDate(date)}
-                          className={`date-chip ${active ? "active" : ""}`}
-                        >
-                          <span className="date-chip-day">
-                            {isToday ? "Today" : format(date, "EEE")}
-                          </span>
-                          <span className="date-chip-num">{format(date, "d")}</span>
-                          <span className="date-chip-month">{format(date, "MMM")}</span>
-                        </button>
-                      );
-                    })}
+                  <div className="calendar-container">
+                    <div className="calendar-header-row">
+                      {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(day => (
+                        <div key={day} className="calendar-weekday">{day}</div>
+                      ))}
+                    </div>
+                    <div className="calendar-grid">
+                      {calendarDays.map((date, i) => {
+                        const isPast = isBefore(date, today);
+                        const isTooFar = isAfter(date, maxDate);
+                        const isDisabled = isPast || isTooFar;
+                        const active = !isDisabled && selectedDate.getTime() === date.getTime();
+                        const isTodayDate = date.getTime() === today.getTime();
+
+                        return (
+                          <button
+                            key={i}
+                            onClick={() => !isDisabled && setSelectedDate(date)}
+                            disabled={isDisabled}
+                            className={`calendar-cell ${active ? "active" : ""} ${isDisabled ? "disabled" : ""} ${isTodayDate ? "today" : ""}`}
+                          >
+                            <span className="cal-day-num">{format(date, "d")}</span>
+                            {date.getDate() === 1 && <span className="cal-month-label">{format(date, "MMM")}</span>}
+                          </button>
+                        );
+                      })}
+                    </div>
                   </div>
 
                   {/* Court cards */}
