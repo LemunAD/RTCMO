@@ -81,7 +81,7 @@ export async function POST(request: Request) {
       return Response.json(
         {
           error:
-            "This time slot has just been booked by someone else. Please choose a different slot.",
+            "Ce créneau vient d'être réservé par quelqu'un d'autre. Veuillez en choisir un autre.",
           code: "SLOT_TAKEN",
         },
         { status: 409 }

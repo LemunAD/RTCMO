@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useCallback } from "react";
+import Image from "next/image";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   Calendar as CalendarIcon,
@@ -16,7 +17,21 @@ import {
   AlertCircle,
   Loader2,
 } from "lucide-react";
-import { format, addDays, startOfWeek, endOfWeek, eachDayOfInterval, startOfDay, isBefore, isAfter } from "date-fns";
+import {
+  format,
+  startOfMonth,
+  endOfMonth,
+  startOfWeek,
+  endOfWeek,
+  eachDayOfInterval,
+  startOfDay,
+  isBefore,
+  isAfter,
+  isSameMonth,
+  isSameDay,
+  addMonths,
+  getDaysInMonth,
+} from "date-fns";
 import { fr } from "date-fns/locale";
 
 // ─── Data ────────────────────────────────────────────────────────────────────
@@ -28,11 +43,13 @@ const COURTS = [
 ];
 
 const TIME_SLOTS = [
-  "08:00", "09:30", "11:00", "12:30", "14:00", 
-  "15:30", "17:00", "18:30", "20:00", "21:30"
+  "08:00", "09:30", "11:00", "12:30", "14:00",
+  "15:30", "17:00", "18:30", "20:00", "21:30",
 ];
 
-const PRICE_PER_PERSON = 60; // MAD
+
+
+const WEEKDAYS_FR = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 
@@ -164,16 +181,49 @@ export default function BookingFlow() {
   const [bookedSlots, setBookedSlots]     = useState<Set<string>>(new Set());
   const [loadingSlots, setLoadingSlots]   = useState(false);
 
+  // Calendar navigation
+  const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
+
   const today = startOfDay(new Date());
-  const maxDate = addDays(today, 29); // 30 days total
 
+  // Booking window: rest of current month always available.
+  // If we're in the last 7 days of the month, the entire next month opens up.
+  const maxDate = useMemo(() => {
+    const currentMonthEnd = endOfMonth(today);
+    const daysInMonth = getDaysInMonth(today);
+    const dayOfMonth = today.getDate();
+    const isLastWeek = dayOfMonth > daysInMonth - 7;
+    if (isLastWeek) {
+      return endOfMonth(addMonths(today, 1));
+    }
+    return currentMonthEnd;
+  }, [today]);
+
+  // Build calendar grid for the currently viewed month
   const calendarDays = useMemo(() => {
-    const calendarStart = startOfWeek(today, { weekStartsOn: 1 });
-    const calendarEnd = endOfWeek(maxDate, { weekStartsOn: 1 });
+    const monthStart = startOfMonth(calendarMonth);
+    const monthEnd = endOfMonth(calendarMonth);
+    const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
+    const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
     return eachDayOfInterval({ start: calendarStart, end: calendarEnd });
-  }, [today, maxDate]);
+  }, [calendarMonth]);
 
-  const totalPrice = playerCount * PRICE_PER_PERSON;
+  // Check if we can navigate to previous/next month
+  const canGoPrevMonth = useMemo(() => {
+    const prevMonth = addMonths(calendarMonth, -1);
+    const prevMonthEnd = endOfMonth(prevMonth);
+    return !isBefore(prevMonthEnd, today);
+  }, [calendarMonth, today]);
+
+  const canGoNextMonth = useMemo(() => {
+    const nextMonth = addMonths(calendarMonth, 1);
+    const nextMonthStart = startOfMonth(nextMonth);
+    return !isAfter(nextMonthStart, maxDate);
+  }, [calendarMonth, maxDate]);
+
+  const isWeekend = selectedDate.getDay() === 0 || selectedDate.getDay() === 6;
+  const pricePerPerson = isWeekend ? 60 : 50;
+  const totalPrice = playerCount * pricePerPerson;
   const selectedCourtData = COURTS.find((c) => c.id === selectedCourt);
 
   const infoComplete =
@@ -234,7 +284,7 @@ export default function BookingFlow() {
 
       if (!res.ok) {
         if (data.code === "SLOT_TAKEN") {
-          setError(data.error);
+          setError("Ce créneau vient d'être réservé par quelqu'un d'autre. Veuillez en choisir un autre.");
           setStep(2); // Go back to time selection
           if (selectedCourt) fetchAvailability(selectedCourt, selectedDate);
         } else {
@@ -274,9 +324,15 @@ export default function BookingFlow() {
       <header className="booking-header">
         <div className="container" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
-            <div className="logo-mark">P</div>
+            <Image 
+              src="/logo_nobg.png" 
+              alt="RTCMO Logo" 
+              width={40} 
+              height={40} 
+              style={{ objectFit: "contain" }}
+            />
             <div>
-              <div style={{ fontWeight: 800, fontSize: "1.05rem", color: "white", lineHeight: 1.2 }}>RTCMO</div>
+              <div style={{ fontWeight: 800, fontSize: "1.05rem", color: "var(--primary)", lineHeight: 1.2 }}>RTCMO</div>
               <div style={{ fontSize: "0.7rem", opacity: 0.75, letterSpacing: "0.08em", textTransform: "uppercase" }}>Réservation de Padel</div>
             </div>
           </div>
@@ -284,7 +340,7 @@ export default function BookingFlow() {
             <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
               <StepDots total={TOTAL_STEPS} current={step} />
               <span style={{ fontSize: "0.8rem", opacity: 0.7 }}>
-                {step}/{TOTAL_STEPS}
+                Étape {step}/{TOTAL_STEPS}
               </span>
             </div>
           )}
@@ -313,34 +369,60 @@ export default function BookingFlow() {
                 <motion.div key="step1" {...slideProps}>
                   <h1 className="step-title">
                     <CalendarIcon size={28} style={{ color: "var(--primary)" }} />
-                    Choose Court &amp; Date
+                    Choisir Terrain &amp; Date
                   </h1>
 
-                  {/* Date row */}
-                  <p className="section-label">Select Date</p>
+                  {/* Date section */}
+                  <p className="section-label">Sélectionner la Date</p>
                   <div className="calendar-container">
+                    {/* Month navigation header */}
+                    <div className="calendar-month-header">
+                      <button
+                        className="calendar-nav-btn"
+                        onClick={() => setCalendarMonth(m => addMonths(m, -1))}
+                        disabled={!canGoPrevMonth}
+                        aria-label="Mois précédent"
+                      >
+                        <ChevronLeft size={18} />
+                      </button>
+                      <span className="calendar-month-title">
+                        {format(calendarMonth, "MMMM yyyy", { locale: fr })}
+                      </span>
+                      <button
+                        className="calendar-nav-btn"
+                        onClick={() => setCalendarMonth(m => addMonths(m, 1))}
+                        disabled={!canGoNextMonth}
+                        aria-label="Mois suivant"
+                      >
+                        <ChevronRight size={18} />
+                      </button>
+                    </div>
+
+                    {/* Weekday headers */}
                     <div className="calendar-header-row">
-                      {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map(day => (
+                      {WEEKDAYS_FR.map(day => (
                         <div key={day} className="calendar-weekday">{day}</div>
                       ))}
                     </div>
+
+                    {/* Calendar grid */}
                     <div className="calendar-grid">
                       {calendarDays.map((date, i) => {
                         const isPast = isBefore(date, today);
                         const isTooFar = isAfter(date, maxDate);
-                        const isDisabled = isPast || isTooFar;
-                        const active = !isDisabled && selectedDate.getTime() === date.getTime();
-                        const isTodayDate = date.getTime() === today.getTime();
+                        const isOutsideMonth = !isSameMonth(date, calendarMonth);
+                        const isDisabled = isPast || isTooFar || isOutsideMonth;
+                        const active = !isDisabled && isSameDay(selectedDate, date);
+                        const isTodayDate = isSameDay(date, today);
 
                         return (
                           <button
                             key={i}
                             onClick={() => !isDisabled && setSelectedDate(date)}
                             disabled={isDisabled}
-                            className={`calendar-cell ${active ? "active" : ""} ${isDisabled ? "disabled" : ""} ${isTodayDate ? "today" : ""}`}
+                            className={`calendar-cell ${active ? "active" : ""} ${isDisabled ? "disabled" : ""} ${isTodayDate ? "today" : ""} ${isOutsideMonth ? "outside" : ""}`}
                           >
                             <span className="cal-day-num">{format(date, "d")}</span>
-                            {date.getDate() === 1 && <span className="cal-month-label">{format(date, "MMM")}</span>}
                           </button>
                         );
                       })}
@@ -348,7 +430,7 @@ export default function BookingFlow() {
                   </div>
 
                   {/* Court cards */}
-                  <p className="section-label" style={{ marginTop: "var(--space-4)" }}>Select Court</p>
+                  <p className="section-label" style={{ marginTop: "var(--space-4)" }}>Sélectionner le Terrain</p>
                   <div style={{ display: "grid", gap: "var(--space-2)" }}>
                     {COURTS.map((court) => {
                       const active = selectedCourt === court.id;
@@ -378,7 +460,7 @@ export default function BookingFlow() {
                       className="btn-primary"
                       style={{ opacity: selectedCourt ? 1 : 0.45, pointerEvents: selectedCourt ? "auto" : "none", display: "flex", alignItems: "center", gap: "6px" }}
                     >
-                      Choose Time <ChevronRight size={16} />
+                      Choisir l&apos;Horaire <ChevronRight size={16} />
                     </button>
                   </div>
                 </motion.div>
@@ -389,18 +471,18 @@ export default function BookingFlow() {
                 <motion.div key="step2" {...slideProps}>
                   {/* Summary row */}
                   <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "var(--space-4)" }}>
-                    <SummaryBadge label="Court" value={selectedCourtData?.name ?? ""} />
-                    <SummaryBadge label="Date" value={format(selectedDate, "d MMM yyyy")} />
+                    <SummaryBadge label="Terrain" value={selectedCourtData?.name ?? ""} />
+                    <SummaryBadge label="Date" value={format(selectedDate, "d MMM yyyy", { locale: fr })} />
                   </div>
 
                   <h2 className="step-title" style={{ fontSize: "1.5rem" }}>
                     <Clock size={24} style={{ color: "var(--primary)" }} />
-                    Time &amp; Players
+                    Horaire &amp; Joueurs
                   </h2>
 
                   {/* Player count */}
                   <p className="section-label">
-                    Number of Players · <span style={{ color: "var(--primary)" }}>60 MAD / person</span>
+                    Nombre de Joueurs · <span style={{ color: "var(--primary)" }}>{pricePerPerson} MAD / personne</span>
                   </p>
                   <div style={{ display: "flex", gap: "var(--space-3)", marginBottom: "var(--space-5)" }}>
                     {([2, 4] as const).map((n) => {
@@ -416,10 +498,10 @@ export default function BookingFlow() {
                             {n}
                           </span>
                           <span style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>
-                            {n === 2 ? "Singles / Pairs" : "Full Team (4)"}
+                            {n === 2 ? "Simple / Paire" : "Équipe (4)"}
                           </span>
                           <span style={{ fontSize: "0.85rem", fontWeight: 700, color: active ? "var(--primary)" : "var(--text-muted)" }}>
-                            {n * PRICE_PER_PERSON} MAD total
+                            {n * pricePerPerson} MAD total
                           </span>
                         </button>
                       );
@@ -428,13 +510,18 @@ export default function BookingFlow() {
 
                   {/* Time slots */}
                   <p className="section-label">
-                    Available Slots (90 min)
+                    Créneaux Disponibles (1h30)
                     {loadingSlots && <Loader2 size={14} className="spin-icon" style={{ marginLeft: "8px", display: "inline-block" }} />}
                   </p>
                   <div className="time-grid">
                     {TIME_SLOTS.map((time) => {
                       const taken = bookedSlots.has(time);
                       const active = selectedTime === time;
+                      // Compute end time for display
+                      const [h, m] = time.split(":").map(Number);
+                      const endMinutes = h * 60 + m + 90;
+                      const endH = Math.floor(endMinutes / 60).toString().padStart(2, "0");
+                      const endM = (endMinutes % 60).toString().padStart(2, "0");
                       return (
                         <button
                           key={time}
@@ -442,8 +529,9 @@ export default function BookingFlow() {
                           disabled={taken || loadingSlots}
                           className={`time-chip ${active ? "active" : ""} ${taken ? "taken" : ""}`}
                         >
-                          <Clock size={14} /> {time}
-                          {taken && <span className="taken-label">Taken</span>}
+                          <Clock size={14} />
+                          <span className="time-chip-range">{time} – {endH}:{endM}</span>
+                          {taken && <span className="taken-label">Réservé</span>}
                         </button>
                       );
                     })}
@@ -451,7 +539,7 @@ export default function BookingFlow() {
 
                   <div className="step-actions">
                     <button onClick={handleBack} className="btn-back">
-                      <ChevronLeft size={16} /> Back
+                      <ChevronLeft size={16} /> Retour
                     </button>
                     <button
                       onClick={handleNext}
@@ -459,7 +547,7 @@ export default function BookingFlow() {
                       className="btn-primary"
                       style={{ opacity: selectedTime ? 1 : 0.45, pointerEvents: selectedTime ? "auto" : "none", display: "flex", alignItems: "center", gap: "6px" }}
                     >
-                      Your Details <ChevronRight size={16} />
+                      Vos Informations <ChevronRight size={16} />
                     </button>
                   </div>
                 </motion.div>
@@ -469,43 +557,43 @@ export default function BookingFlow() {
               {step === 3 && (
                 <motion.div key="step3" {...slideProps}>
                   <div style={{ display: "flex", gap: "8px", flexWrap: "wrap", marginBottom: "var(--space-4)" }}>
-                    <SummaryBadge label="Court" value={selectedCourtData?.name ?? ""} />
-                    <SummaryBadge label="Date"  value={format(selectedDate, "d MMM yyyy")} />
-                    <SummaryBadge label="Time"  value={selectedTime ?? ""} />
-                    <SummaryBadge label="Players" value={`${playerCount} · ${totalPrice} MAD`} />
+                    <SummaryBadge label="Terrain" value={selectedCourtData?.name ?? ""} />
+                    <SummaryBadge label="Date"  value={format(selectedDate, "d MMM yyyy", { locale: fr })} />
+                    <SummaryBadge label="Horaire"  value={selectedTime ?? ""} />
+                    <SummaryBadge label="Joueurs" value={`${playerCount} · ${totalPrice} MAD`} />
                   </div>
 
                   <h2 className="step-title" style={{ fontSize: "1.5rem" }}>
                     <User size={24} style={{ color: "var(--primary)" }} />
-                    Your Details
+                    Vos Informations
                   </h2>
                   <p style={{ color: "var(--text-muted)", marginBottom: "var(--space-5)", fontSize: "0.9rem" }}>
-                    Fill in your information to complete the reservation.
+                    Remplissez vos informations pour finaliser la réservation.
                   </p>
 
                   <div style={{ display: "grid", gap: "var(--space-3)" }}>
                     <InputField
                       icon={<User size={18} />}
-                      label="Full Name"
-                      placeholder="e.g. Ahmed Benali"
+                      label="Nom Complet"
+                      placeholder="ex. Ahmed Benali"
                       value={info.fullName}
                       onChange={(v) => setInfo({ ...info, fullName: v })}
                       required
                     />
                     <InputField
                       icon={<Phone size={18} />}
-                      label="Mobile Phone"
+                      label="Téléphone"
                       type="tel"
-                      placeholder="e.g. +212 6 00 00 00 00"
+                      placeholder="ex. +212 6 00 00 00 00"
                       value={info.phone}
                       onChange={(v) => setInfo({ ...info, phone: v })}
                       required
                     />
                     <InputField
                       icon={<Mail size={18} />}
-                      label="Email Address"
+                      label="Adresse E-mail"
                       type="email"
-                      placeholder="e.g. ahmed@example.com"
+                      placeholder="ex. ahmed@example.com"
                       value={info.email}
                       onChange={(v) => setInfo({ ...info, email: v })}
                       required
@@ -514,7 +602,7 @@ export default function BookingFlow() {
 
                   <div className="step-actions">
                     <button onClick={handleBack} className="btn-back">
-                      <ChevronLeft size={16} /> Back
+                      <ChevronLeft size={16} /> Retour
                     </button>
                     <button
                       onClick={handleNext}
@@ -522,7 +610,7 @@ export default function BookingFlow() {
                       className="btn-primary"
                       style={{ opacity: infoComplete ? 1 : 0.45, pointerEvents: infoComplete ? "auto" : "none", display: "flex", alignItems: "center", gap: "6px" }}
                     >
-                      Review &amp; Confirm <ChevronRight size={16} />
+                      Vérifier &amp; Confirmer <ChevronRight size={16} />
                     </button>
                   </div>
                 </motion.div>
@@ -533,25 +621,25 @@ export default function BookingFlow() {
                 <motion.div key="step4" {...slideProps}>
                   <h2 className="step-title" style={{ fontSize: "1.5rem" }}>
                     <CheckCircle2 size={24} style={{ color: "var(--primary)" }} />
-                    Review Booking
+                    Récapitulatif
                   </h2>
 
                   {/* Booking summary card */}
                   <div className="review-card">
                     <div className="review-card-header">
-                      <span style={{ fontWeight: 700 }}>RTCMO — Court Reservation</span>
+                      <span style={{ fontWeight: 700 }}>RTCMO — Réservation de Terrain</span>
                       <span style={{ fontSize: "0.85rem", opacity: 0.85 }}>Padel</span>
                     </div>
 
                     <div style={{ padding: "var(--space-4)", display: "grid", gap: "var(--space-3)" }}>
                       {[
-                        ["Court",   selectedCourtData?.name ?? ""],
-                        ["Date",    format(selectedDate, "EEEE, d MMMM yyyy")],
-                        ["Time",    `${selectedTime} (90 min session)`],
-                        ["Players", `${playerCount} people · 60 MAD × ${playerCount}`],
-                        ["Name",    info.fullName],
-                        ["Phone",   info.phone],
-                        ["Email",   info.email],
+                        ["Terrain",   selectedCourtData?.name ?? ""],
+                        ["Date",    format(selectedDate, "EEEE d MMMM yyyy", { locale: fr })],
+                        ["Horaire",    `${selectedTime} (session de 1h30)`],
+                        ["Joueurs", `${playerCount} personnes · ${pricePerPerson} MAD × ${playerCount}`],
+                        ["Nom",    info.fullName],
+                        ["Téléphone",   info.phone],
+                        ["E-mail",   info.email],
                       ].map(([label, value]) => (
                         <div key={label} className="review-row">
                           <span style={{ color: "var(--text-muted)", fontSize: "0.875rem", flexShrink: 0 }}>{label}</span>
@@ -561,7 +649,7 @@ export default function BookingFlow() {
 
                       {/* Total */}
                       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "var(--space-1)" }}>
-                        <span style={{ fontWeight: 700, fontSize: "1.1rem" }}>Total Due</span>
+                        <span style={{ fontWeight: 700, fontSize: "1.1rem" }}>Total à Payer</span>
                         <span style={{ fontWeight: 800, fontSize: "1.5rem", color: "var(--primary)" }}>
                           {totalPrice} MAD
                         </span>
@@ -570,12 +658,12 @@ export default function BookingFlow() {
                   </div>
 
                   <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginBottom: "var(--space-5)" }}>
-                    Payment is collected at the club reception. A confirmation will be sent to {info.email}.
+                    Le paiement s&apos;effectue à l&apos;accueil du club. Une confirmation sera envoyée à {info.email}.
                   </p>
 
                   <div className="step-actions">
                     <button onClick={handleBack} disabled={isBooking} className="btn-back">
-                      <ChevronLeft size={16} /> Back
+                      <ChevronLeft size={16} /> Retour
                     </button>
                     <button
                       onClick={handleConfirm}
@@ -586,10 +674,10 @@ export default function BookingFlow() {
                       {isBooking ? (
                         <span style={{ display: "flex", alignItems: "center", gap: "8px" }}>
                           <Loader2 size={16} className="spin-icon" />
-                          Processing…
+                          En cours…
                         </span>
                       ) : (
-                        "Confirm Booking"
+                        "Confirmer la Réservation"
                       )}
                     </button>
                   </div>
@@ -615,27 +703,27 @@ export default function BookingFlow() {
                   </motion.div>
 
                   <h2 style={{ fontSize: "2.25rem", color: "var(--primary)", marginBottom: "var(--space-2)" }}>
-                    Booking Confirmed!
+                    Réservation Confirmée !
                   </h2>
                   <p style={{ color: "var(--text-muted)", maxWidth: "380px", margin: "0 auto var(--space-2)", lineHeight: 1.7 }}>
-                    <strong>{info.fullName}</strong>, your reservation is set.
+                    <strong>{info.fullName}</strong>, votre réservation est enregistrée.
                   </p>
 
                   {bookingRef && (
                     <div className="booking-ref-badge">
-                      Ref: <strong>{bookingRef}</strong>
+                      Réf : <strong>{bookingRef}</strong>
                     </div>
                   )}
 
                   <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap", margin: "var(--space-4) 0" }}>
-                    <SummaryBadge label="Court"   value={selectedCourtData?.name ?? ""} />
-                    <SummaryBadge label="Date"    value={format(selectedDate, "d MMM yyyy")} />
-                    <SummaryBadge label="Time"    value={selectedTime ?? ""} />
+                    <SummaryBadge label="Terrain"   value={selectedCourtData?.name ?? ""} />
+                    <SummaryBadge label="Date"    value={format(selectedDate, "d MMM yyyy", { locale: fr })} />
+                    <SummaryBadge label="Horaire"    value={selectedTime ?? ""} />
                     <SummaryBadge label="Total"   value={`${totalPrice} MAD`} />
                   </div>
 
                   <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginBottom: "var(--space-6)" }}>
-                    A confirmation has been sent to <strong>{info.email}</strong>. Payment at reception.
+                    Une confirmation a été envoyée à <strong>{info.email}</strong>. Paiement à l&apos;accueil.
                   </p>
 
                   <div style={{ display: "flex", gap: "var(--space-3)", justifyContent: "center", flexWrap: "wrap" }}>
@@ -643,7 +731,7 @@ export default function BookingFlow() {
                       onClick={handleReset}
                       className="btn-primary"
                     >
-                      Book Another Court
+                      Réserver un Autre Terrain
                     </button>
                   </div>
                 </motion.div>
@@ -657,7 +745,7 @@ export default function BookingFlow() {
       {/* ── Footer ── */}
       <footer className="booking-footer">
         <div className="container" style={{ textAlign: "center" }}>
-          <p>&copy; {new Date().getFullYear()} Royal Tennis Club de Mohammédia. All rights reserved.</p>
+          <p>&copy; {new Date().getFullYear()} Royal Tennis Club de Mohammédia. Tous droits réservés.</p>
         </div>
       </footer>
     </div>
