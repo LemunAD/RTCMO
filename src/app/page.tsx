@@ -162,6 +162,7 @@ export default function BookingFlow() {
   });
   const [selectedTime, setSelectedTime]   = useState<string | null>(null);
   const [playerCount, setPlayerCount]     = useState<2 | 4>(4);
+  const [otherPlayerNames, setOtherPlayerNames] = useState<string[]>(["", "", ""]);
   const [info, setInfo] = useState<PlayerInfo>({
     fullName: "", phone: "", email: "",
   });
@@ -224,6 +225,10 @@ export default function BookingFlow() {
   const handleNext = () => setStep((s) => Math.min(s + 1, TOTAL_STEPS + 1));
   const handleBack = () => setStep((s) => Math.max(s - 1, 1));
 
+  const updateOtherPlayerName = (index: number, value: string) => {
+    setOtherPlayerNames((prev) => prev.map((v, i) => (i === index ? value : v)));
+  };
+
   // Fetch availability when court or date changes
   const fetchAvailability = useCallback(async (courtId: number, date: Date) => {
     setLoadingSlots(true);
@@ -269,6 +274,10 @@ export default function BookingFlow() {
           full_name: info.fullName.trim(),
           phone: info.phone.trim(),
           email: info.email.trim(),
+          other_players: otherPlayerNames
+            .slice(0, playerCount - 1)
+            .map((n) => n.trim())
+            .filter(Boolean),
         }),
       });
 
@@ -301,6 +310,7 @@ export default function BookingFlow() {
     setBookingRef(null);
     setError(null);
     setInfo({ fullName: "", phone: "", email: "" });
+    setOtherPlayerNames(["", "", ""]);
   };
 
   const slideProps = {
@@ -502,6 +512,23 @@ export default function BookingFlow() {
                     })}
                   </div>
 
+                  {/* Teammate names (optional) */}
+                  <p className="section-label">
+                    {playerCount === 2 ? "Partenaire (optionnel)" : "Coéquipiers (optionnel)"}
+                  </p>
+                  <div style={{ display: "grid", gap: "var(--space-3)", marginBottom: "var(--space-5)" }}>
+                    {Array.from({ length: playerCount - 1 }).map((_, i) => (
+                      <InputField
+                        key={i}
+                        icon={<User size={18} />}
+                        label={playerCount === 2 ? "Nom du partenaire" : `Nom du coéquipier ${i + 1}`}
+                        placeholder="ex. Sara El Amrani"
+                        value={otherPlayerNames[i] ?? ""}
+                        onChange={(v) => updateOtherPlayerName(i, v)}
+                      />
+                    ))}
+                  </div>
+
                   {/* Time slots */}
                   <p className="section-label">
                     Créneaux Disponibles (1h30)
@@ -638,6 +665,9 @@ export default function BookingFlow() {
                         ["Date",    format(selectedDate, "EEEE d MMMM yyyy", { locale: fr })],
                         ["Horaire",    `${selectedTime} (session de 1h30)`],
                         ["Joueurs", `${playerCount} personnes · ${pricePerPerson} MAD × ${playerCount}`],
+                        ...(otherPlayerNames.slice(0, playerCount - 1).some((n) => n.trim())
+                          ? [["Autres joueurs", otherPlayerNames.slice(0, playerCount - 1).filter((n) => n.trim()).join(", ")]]
+                          : []),
                         ["Nom",    info.fullName],
                         ["Téléphone",   info.phone],
                         ["E-mail",   info.email],

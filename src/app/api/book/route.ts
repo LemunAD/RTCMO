@@ -2,6 +2,7 @@ import { supabase } from "@/lib/supabase";
 import {
   COURT_IDS,
   TIME_SLOTS,
+  MAX_PLAYER_NAME_LENGTH,
   isPastBookingDate,
   isSunday,
 } from "@/lib/constants";
@@ -15,6 +16,7 @@ interface BookingPayload {
   full_name: string;
   phone: string;
   email: string;
+  other_players?: unknown;
 }
 
 function generateRef(): string {
@@ -88,6 +90,25 @@ export async function POST(request: Request) {
     );
   }
 
+  let otherPlayers: string[] = [];
+  if (body.other_players !== undefined) {
+    if (
+      !Array.isArray(body.other_players) ||
+      !body.other_players.every((n) => typeof n === "string")
+    ) {
+      return Response.json({ error: "other_players must be an array of strings" }, { status: 400 });
+    }
+    otherPlayers = (body.other_players as string[])
+      .map((n) => n.trim().slice(0, MAX_PLAYER_NAME_LENGTH))
+      .filter(Boolean);
+    if (otherPlayers.length > body.player_count - 1) {
+      return Response.json(
+        { error: "other_players cannot exceed player_count - 1 entries" },
+        { status: 400 }
+      );
+    }
+  }
+
   const bookingRef = generateRef();
 
   const { data, error } = await supabase
@@ -103,6 +124,8 @@ export async function POST(request: Request) {
       email: body.email,
       address: "",
       booking_ref: bookingRef,
+      other_players: otherPlayers,
+      status: "pending",
     })
     .select("id, booking_ref")
     .single();
