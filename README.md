@@ -18,6 +18,14 @@ Open [http://localhost:3000](http://localhost:3000) with your browser to see the
 
 You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
+## Configuration
+
+Copy `.env.example` to `.env.local` and fill in your Supabase project's URL/anon key, plus an admin password and session secret for the admin panel (see comments in the file for details).
+
+## Admin panel
+
+Reservations can be reviewed and cancelled at `/admin`. It's gated by `ADMIN_PASSWORD` (a single shared password, no per-user accounts) and is not linked from the public site or search-indexed — visit the URL directly.
+
 This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
 ## Learn More
