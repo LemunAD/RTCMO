@@ -1,4 +1,5 @@
 import { createHmac, timingSafeEqual } from "crypto";
+import { cookies } from "next/headers";
 
 export const ADMIN_SESSION_COOKIE = "rtcmo_admin_session";
 export const ADMIN_SESSION_MAX_AGE_SECONDS = 8 * 60 * 60; // 8 hours
@@ -44,4 +45,10 @@ export function verifySessionToken(token: string | undefined | null): boolean {
   if (!safeEqual(sign(payload), signature)) return false;
   const expiresAt = Number(payload);
   return Number.isFinite(expiresAt) && expiresAt > Date.now();
+}
+
+/** Call from an admin Route Handler to check the caller's session cookie. */
+export async function isAdminAuthenticated(): Promise<boolean> {
+  const cookieStore = await cookies();
+  return verifySessionToken(cookieStore.get(ADMIN_SESSION_COOKIE)?.value);
 }
