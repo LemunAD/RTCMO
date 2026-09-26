@@ -1,4 +1,5 @@
 import { supabase } from "@/lib/supabase";
+import { COURT_IDS } from "@/lib/constants";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -10,6 +11,14 @@ export async function GET(request: Request) {
       { error: "court_id and date are required" },
       { status: 400 }
     );
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+    return Response.json({ error: "Invalid date format" }, { status: 400 });
+  }
+
+  if (!COURT_IDS.includes(Number(courtId) as (typeof COURT_IDS)[number])) {
+    return Response.json({ error: "Invalid court_id" }, { status: 400 });
   }
 
   const { data, error } = await supabase

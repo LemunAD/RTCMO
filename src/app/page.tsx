@@ -25,6 +25,7 @@ import {
   endOfWeek,
   eachDayOfInterval,
   startOfDay,
+  addDays,
   isBefore,
   isAfter,
   isSameMonth,
@@ -33,21 +34,9 @@ import {
   getDaysInMonth,
 } from "date-fns";
 import { fr } from "date-fns/locale";
+import { COURTS, TIME_SLOTS } from "@/lib/constants";
 
 // ─── Data ────────────────────────────────────────────────────────────────────
-
-const COURTS = [
-  { id: 1, name: "Terrain de Padel 1", tag: "Vue Panoramique", type: "Intérieur" },
-  { id: 2, name: "Terrain de Padel 2", tag: "Court Central",  type: "Intérieur" },
-  { id: 3, name: "Terrain de Padel 3", tag: "Côté Jardin",    type: "Extérieur" },
-];
-
-const TIME_SLOTS = [
-  "08:00", "09:30", "11:00", "12:30", "14:00",
-  "15:30", "17:00", "18:30", "20:00", "21:30",
-];
-
-
 
 const WEEKDAYS_FR = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 
@@ -167,7 +156,10 @@ export default function BookingFlow() {
 
   const [step, setStep]                 = useState(1);
   const [selectedCourt, setSelectedCourt] = useState<number | null>(null);
-  const [selectedDate, setSelectedDate]   = useState<Date>(new Date());
+  const [selectedDate, setSelectedDate]   = useState<Date>(() => {
+    const t = startOfDay(new Date());
+    return t.getDay() === 0 ? addDays(t, 1) : t; // skip Sunday — club closed
+  });
   const [selectedTime, setSelectedTime]   = useState<string | null>(null);
   const [playerCount, setPlayerCount]     = useState<2 | 4>(4);
   const [info, setInfo] = useState<PlayerInfo>({
@@ -411,7 +403,8 @@ export default function BookingFlow() {
                         const isPast = isBefore(date, today);
                         const isTooFar = isAfter(date, maxDate);
                         const isOutsideMonth = !isSameMonth(date, calendarMonth);
-                        const isDisabled = isPast || isTooFar || isOutsideMonth;
+                        const isClosed = date.getDay() === 0; // Sunday — club closed
+                        const isDisabled = isPast || isTooFar || isOutsideMonth || isClosed;
                         const active = !isDisabled && isSameDay(selectedDate, date);
                         const isTodayDate = isSameDay(date, today);
 
@@ -420,7 +413,8 @@ export default function BookingFlow() {
                             key={i}
                             onClick={() => !isDisabled && setSelectedDate(date)}
                             disabled={isDisabled}
-                            className={`calendar-cell ${active ? "active" : ""} ${isDisabled ? "disabled" : ""} ${isTodayDate ? "today" : ""} ${isOutsideMonth ? "outside" : ""}`}
+                            title={isClosed ? "Fermé le dimanche" : undefined}
+                            className={`calendar-cell ${active ? "active" : ""} ${isDisabled ? "disabled" : ""} ${isTodayDate ? "today" : ""} ${isOutsideMonth ? "outside" : ""} ${isClosed && !isOutsideMonth ? "closed" : ""}`}
                           >
                             <span className="cal-day-num">{format(date, "d")}</span>
                           </button>
@@ -513,6 +507,12 @@ export default function BookingFlow() {
                     Créneaux Disponibles (1h30)
                     {loadingSlots && <Loader2 size={14} className="spin-icon" style={{ marginLeft: "8px", display: "inline-block" }} />}
                   </p>
+                  {selectedDate.getDay() === 0 ? (
+                    <div className="closed-notice">
+                      <AlertCircle size={18} />
+                      Le club est fermé le dimanche. Merci de choisir un autre jour.
+                    </div>
+                  ) : (
                   <div className="time-grid">
                     {TIME_SLOTS.map((time) => {
                       const taken = bookedSlots.has(time);
@@ -536,6 +536,7 @@ export default function BookingFlow() {
                       );
                     })}
                   </div>
+                  )}
 
                   <div className="step-actions">
                     <button onClick={handleBack} className="btn-back">

@@ -1,4 +1,10 @@
 import { supabase } from "@/lib/supabase";
+import {
+  COURT_IDS,
+  TIME_SLOTS,
+  isPastBookingDate,
+  isSunday,
+} from "@/lib/constants";
 
 interface BookingPayload {
   court_id: number;
@@ -52,6 +58,32 @@ export async function POST(request: Request) {
   if (![2, 4].includes(body.player_count)) {
     return Response.json(
       { error: "player_count must be 2 or 4" },
+      { status: 400 }
+    );
+  }
+
+  if (!COURT_IDS.includes(body.court_id as (typeof COURT_IDS)[number])) {
+    return Response.json({ error: "Invalid court_id" }, { status: 400 });
+  }
+
+  if (!(TIME_SLOTS as readonly string[]).includes(body.time_slot)) {
+    return Response.json({ error: "Invalid time_slot" }, { status: 400 });
+  }
+
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(body.booking_date)) {
+    return Response.json({ error: "Invalid booking_date format" }, { status: 400 });
+  }
+
+  if (isPastBookingDate(body.booking_date)) {
+    return Response.json(
+      { error: "La date sélectionnée est déjà passée." },
+      { status: 400 }
+    );
+  }
+
+  if (isSunday(body.booking_date)) {
+    return Response.json(
+      { error: "Le club est fermé le dimanche.", code: "CLOSED_SUNDAY" },
       { status: 400 }
     );
   }
