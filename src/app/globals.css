@@ -583,6 +583,120 @@ button {
   font-size: 0.9rem;
 }
 
+.section-heading {
+  font-size: 1.05rem;
+  font-weight: 800;
+  color: var(--primary);
+  margin: var(--space-4) 0 var(--space-2);
+}
+
+.stat-cards {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(160px, 1fr));
+  gap: var(--space-3);
+}
+
+.stat-card {
+  background: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-md);
+  padding: var(--space-3) var(--space-4);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.stat-card .stat-label {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  font-size: 0.7rem;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  color: var(--text-muted);
+  font-weight: 700;
+}
+
+.stat-card .stat-value {
+  font-size: 1.6rem;
+  font-weight: 800;
+  color: var(--primary);
+}
+
+.court-breakdown {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.court-breakdown-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 0.85rem;
+}
+
+.court-breakdown-bar {
+  flex: 1;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--border);
+  overflow: hidden;
+}
+
+.court-breakdown-fill {
+  height: 100%;
+  background: var(--primary);
+  border-radius: var(--radius-full);
+  transition: width 0.3s ease;
+}
+
+.player-badges {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+}
+
+.player-badge {
+  font-size: 0.7rem;
+  padding: 2px 8px;
+  border-radius: var(--radius-full);
+  background: rgba(139, 28, 34, 0.08);
+  color: var(--primary);
+  white-space: nowrap;
+}
+
+.status-select {
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius-full);
+  padding: 4px 10px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.03em;
+  cursor: pointer;
+  background: var(--bg-surface);
+  color: var(--text-main);
+}
+
+.status-select.pending {
+  color: #92400e;
+  border-color: #f59e0b;
+  background: #fef3c7;
+}
+
+.status-select.paid {
+  color: #065f46;
+  border-color: #10b981;
+  background: #d1fae5;
+}
+
+.status-select.cancelled {
+  color: #991b1b;
+  border-color: #f87171;
+  background: #fee2e2;
+}
+
 @media (max-width: 640px) {
   .booking-card {
     padding: var(--space-4);
