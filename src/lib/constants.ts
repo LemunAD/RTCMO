@@ -19,6 +19,11 @@ export const SLOT_DURATION_MINUTES = 90;
 
 export const DATE_FORMAT = "yyyy-MM-dd";
 
+export const BOOKING_STATUSES = ["pending", "paid", "cancelled"] as const;
+export type BookingStatus = (typeof BOOKING_STATUSES)[number];
+
+export const MAX_PLAYER_NAME_LENGTH = 80;
+
 /** Parses a "yyyy-MM-dd" string as a local calendar date (no UTC/timezone shift). */
 export function parseBookingDate(dateStr: string): Date {
   return parse(dateStr, DATE_FORMAT, new Date());
