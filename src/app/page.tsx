@@ -325,13 +325,13 @@ export default function BookingFlow() {
             />
             <div>
               <div style={{ fontWeight: 800, fontSize: "1.05rem", color: "var(--primary)", lineHeight: 1.2 }}>RTCMO</div>
-              <div style={{ fontSize: "0.7rem", opacity: 0.75, letterSpacing: "0.08em", textTransform: "uppercase" }}>Réservation de Padel</div>
+              <div className="header-subtitle" style={{ fontSize: "0.7rem", opacity: 0.75, letterSpacing: "0.08em", textTransform: "uppercase" }}>Réservation de Padel</div>
             </div>
           </div>
           {step <= TOTAL_STEPS && (
             <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
               <StepDots total={TOTAL_STEPS} current={step} />
-              <span style={{ fontSize: "0.8rem", opacity: 0.7 }}>
+              <span className="header-subtitle" style={{ fontSize: "0.8rem", opacity: 0.7 }}>
                 Étape {step}/{TOTAL_STEPS}
               </span>
             </div>

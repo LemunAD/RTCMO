@@ -193,7 +193,7 @@ button {
   font-size: 0.8rem;
   font-weight: 700;
   text-transform: uppercase;
-  letterSpacing: 0.08em;
+  letter-spacing: 0.08em;
   color: var(--text-muted);
   margin-bottom: var(--space-2);
 }
@@ -358,8 +358,10 @@ button {
 .step-actions {
   margin-top: var(--space-6);
   display: flex;
+  flex-wrap: wrap;
   justify-content: space-between;
   align-items: center;
+  gap: var(--space-3);
 }
 
 .btn-back {
@@ -529,5 +531,33 @@ button {
     border-radius: 0;
     border-left: none;
     border-right: none;
+  }
+
+  .calendar-grid,
+  .calendar-header-row {
+    gap: 4px;
+  }
+
+  .calendar-cell {
+    padding: 8px 2px;
+  }
+
+  .step-title {
+    font-size: 1.4rem;
+  }
+
+  .step-actions .btn-primary {
+    flex: 1 1 auto;
+    justify-content: center;
+  }
+}
+
+@media (max-width: 420px) {
+  .booking-header .container {
+    gap: 8px;
+  }
+
+  .header-subtitle {
+    display: none;
   }
 }
