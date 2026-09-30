@@ -3,7 +3,6 @@ import {
   COURT_IDS,
   TIME_SLOTS,
   isPastBookingDate,
-  isSunday,
 } from "@/lib/constants";
 
 interface BookingPayload {
@@ -15,6 +14,7 @@ interface BookingPayload {
   full_name: string;
   phone: string;
   email: string;
+  other_players?: string[];
 }
 
 function generateRef(): string {
@@ -81,13 +81,6 @@ export async function POST(request: Request) {
     );
   }
 
-  if (isSunday(body.booking_date)) {
-    return Response.json(
-      { error: "Le club est fermé le dimanche.", code: "CLOSED_SUNDAY" },
-      { status: 400 }
-    );
-  }
-
   const bookingRef = generateRef();
 
   const { data, error } = await supabase
@@ -102,7 +95,9 @@ export async function POST(request: Request) {
       phone: body.phone,
       email: body.email,
       address: "",
+      other_players: body.other_players ?? [],
       booking_ref: bookingRef,
+      status: "pending",
     })
     .select("id, booking_ref")
     .single();
