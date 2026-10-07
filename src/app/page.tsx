@@ -161,7 +161,9 @@ export default function BookingFlow() {
   const [step, setStep]                 = useState(1);
   
   // Step 1 Auth state
-  const [authMode, setAuthMode]         = useState<"member" | "guest" | null>(null);
+  const [authMode, setAuthMode]         = useState<"member" | "guest" | "forgot" | null>(null);
+  const [resetSent, setResetSent]       = useState(false);
+  const [isSendingReset, setIsSendingReset] = useState(false);
   const [loginEmail, setLoginEmail]     = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [isLoggingIn, setIsLoggingIn]   = useState(false);
@@ -271,6 +273,24 @@ export default function BookingFlow() {
       setError(err.message || "Identifiants incorrects.");
     } finally {
       setIsLoggingIn(false);
+    }
+  };
+
+  const handleForgotPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!loginEmail.trim()) return;
+    setIsSendingReset(true);
+    setError(null);
+    try {
+      const { error } = await supabase.auth.resetPasswordForEmail(loginEmail.trim(), {
+        redirectTo: `${window.location.origin}/reset-password`,
+      });
+      if (error) throw error;
+      setResetSent(true);
+    } catch (err: any) {
+      setError(err.message || "Impossible d'envoyer l'e-mail de réinitialisation.");
+    } finally {
+      setIsSendingReset(false);
     }
   };
 
@@ -494,6 +514,10 @@ export default function BookingFlow() {
                         placeholder="••••••••" required
                         value={loginPassword} onChange={setLoginPassword}
                       />
+                      <button type="button" onClick={() => { setError(null); setResetSent(false); setAuthMode("forgot"); }}
+                        style={{ alignSelf: "flex-end", background: "none", border: "none", cursor: "pointer", color: "var(--primary)", fontSize: "0.85rem", fontWeight: 600, textDecoration: "underline", padding: 0 }}>
+                        Mot de passe oublié ?
+                      </button>
                       <div className="step-actions" style={{ marginTop: "var(--space-2)" }}>
                         <button type="button" onClick={() => setAuthMode(null)} className="btn-back">
                           <ChevronLeft size={16} /> Retour
@@ -501,6 +525,36 @@ export default function BookingFlow() {
                         <button type="submit" disabled={isLoggingIn} className="btn-primary" style={{ flex: 1, justifyContent: "center" }}>
                           {isLoggingIn ? <Loader2 size={16} className="spin-icon" /> : "Se Connecter"}
                         </button>
+                      </div>
+                    </form>
+                  ) : authMode === "forgot" ? (
+                    <form onSubmit={handleForgotPassword} style={{ maxWidth: "400px", margin: "0 auto", display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+                      <p className="section-label" style={{ textAlign: "center" }}>Mot de passe oublié</p>
+                      {resetSent ? (
+                        <p style={{ textAlign: "center", color: "var(--text-muted)", lineHeight: 1.6 }}>
+                          Si un compte existe pour <strong>{loginEmail}</strong>, un e-mail contenant un lien de réinitialisation vient d'être envoyé. Pensez à vérifier vos courriers indésirables.
+                        </p>
+                      ) : (
+                        <>
+                          <p style={{ textAlign: "center", color: "var(--text-muted)", fontSize: "0.9rem" }}>
+                            Saisissez votre adresse e-mail pour recevoir un lien de réinitialisation.
+                          </p>
+                          <InputField
+                            icon={<Mail size={18} />} label="Email" type="email"
+                            placeholder="votre@email.com" required
+                            value={loginEmail} onChange={setLoginEmail}
+                          />
+                        </>
+                      )}
+                      <div className="step-actions" style={{ marginTop: "var(--space-2)" }}>
+                        <button type="button" onClick={() => setAuthMode("member")} className="btn-back">
+                          <ChevronLeft size={16} /> Retour
+                        </button>
+                        {!resetSent && (
+                          <button type="submit" disabled={isSendingReset || !loginEmail.trim()} className="btn-primary" style={{ flex: 1, justifyContent: "center" }}>
+                            {isSendingReset ? <Loader2 size={16} className="spin-icon" /> : "Envoyer le lien"}
+                          </button>
+                        )}
                       </div>
                     </form>
                   ) : (
