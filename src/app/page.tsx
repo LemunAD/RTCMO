@@ -367,6 +367,14 @@ export default function BookingFlow() {
     }
   }, [step, selectedCourt, selectedDate, calendarWeek, viewMode, fetchDailyAvailability, fetchWeeklyAvailability]);
 
+  // If Supabase falls back to the Site URL, forward recovery links to the reset page.
+  useEffect(() => {
+    const { hash, search } = window.location;
+    if (hash.includes("type=recovery") || search.includes("type=recovery")) {
+      window.location.replace(`/reset-password${search}${hash}`);
+    }
+  }, []);
+
   useEffect(() => {
     const needed = playerCount - 1;
     setOtherPlayers(prev => {
