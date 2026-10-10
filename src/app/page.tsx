@@ -15,6 +15,7 @@ import {
   Mail,
   ChevronRight,
   ChevronLeft,
+  ArrowRight,
   AlertCircle,
   Loader2,
   Lock,
@@ -453,7 +454,7 @@ export default function BookingFlow() {
   return (
     <div style={{ minHeight: "100vh", background: "var(--bg-main)" }}>
       <header className="booking-header">
-        <div className="container" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+        <div className="container booking-page-container" style={{ display: "flex", alignItems: "center", justifyContent: "space-between" }}>
           <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
             <Image src="/logo_nobg.png" alt="RTCMO Logo" width={40} height={40} style={{ objectFit: "contain" }} />
             <div>
@@ -474,39 +475,75 @@ export default function BookingFlow() {
 
       <AnimatePresence>
         {error && (
-          <div className="container" style={{ maxWidth: "800px", position: "relative", zIndex: 50, marginTop: "var(--space-3)" }}>
+          <div className="container" style={{ maxWidth: "820px", position: "relative", zIndex: 50, marginTop: "var(--space-3)" }}>
             <ErrorToast message={error} onDismiss={() => setError(null)} />
           </div>
         )}
       </AnimatePresence>
 
-      <main style={{ padding: "var(--space-4) 0 var(--space-6)" }}>
-        <div className="container" style={{ maxWidth: "800px" }}>
-          <div className="glass-panel booking-card" style={{ minHeight: "600px" }}>
-            <AnimatePresence mode="wait">
+      <main className="booking-main" style={{ padding: "var(--space-4) 0 var(--space-6)" }}>
+        <div className="container booking-page-container">
+          <div className="booking-columns-layout">
+            {/* Left Aesthetic Flanking Image Panel */}
+            <aside className="aesthetic-side-panel left" aria-hidden="true">
+              <div className="aesthetic-image-card">
+                <Image
+                  src="/pexels-afterdark-32524250.jpg"
+                  alt="RTCMO Padel Smash & Action"
+                  fill
+                  sizes="(max-width: 1200px) 0vw, 300px"
+                  style={{ objectFit: "cover" }}
+                  priority
+                />
+                <div className="aesthetic-overlay">
+                  <div className="aesthetic-card-badge">
+                    <span className="aesthetic-badge-dot" />
+                    <span>RTCMO Padel</span>
+                  </div>
+                  <div className="aesthetic-card-caption">
+                    <h4>Esprit & Intensité</h4>
+                    <p>3 terrains panoramiques éclairés</p>
+                  </div>
+                </div>
+              </div>
+            </aside>
+
+            {/* Central Booking Card */}
+            <div className="booking-card-wrapper">
+              <div className="glass-panel booking-card" style={{ minHeight: "600px" }}>
+                <AnimatePresence mode="wait">
 
               {/* ━━━ STEP 1: Authentication ━━━ */}
               {step === 1 && (
-                <motion.div key="step1" {...slideProps}>
-                  <h1 className="step-title" style={{ justifyContent: "center", marginBottom: "var(--space-6)" }}>
-                    Bienvenue au Padel RTCMO
-                  </h1>
-                  
+                <motion.div key="step1" {...slideProps} className="step1-layout">
+                  <div className="brand-header">
+                    <div className="brand-logo-ring">
+                      <Image src="/logo_nobg.png" alt="RTCMO" width={56} height={56} style={{ objectFit: "contain" }} />
+                    </div>
+                    <h1 className="brand-title">Bienvenue au Padel RTCMO</h1>
+                    <div className="brand-divider" />
+                    {!authMode && (
+                      <p className="brand-tagline">Réservez votre terrain en quelques clics</p>
+                    )}
+                  </div>
+
                   {!authMode ? (
-                    <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)", maxWidth: "400px", margin: "0 auto" }}>
+                    <div className="auth-choice-list">
                       <button className="auth-choice-btn" onClick={() => setAuthMode("member")}>
-                        <Lock size={24} style={{ color: "var(--primary)" }} />
-                        <div style={{ textAlign: "left" }}>
-                          <div style={{ fontWeight: 700, fontSize: "1.1rem" }}>Membre du Club</div>
-                          <div style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>J'ai déjà un compte</div>
-                        </div>
+                        <span className="auth-choice-icon"><Lock size={22} /></span>
+                        <span className="auth-choice-text">
+                          <span className="auth-choice-title">Membre du Club</span>
+                          <span className="auth-choice-desc">J'ai déjà un compte</span>
+                        </span>
+                        <ArrowRight size={18} className="auth-choice-arrow" />
                       </button>
                       <button className="auth-choice-btn" onClick={() => setAuthMode("guest")}>
-                        <User size={24} style={{ color: "var(--primary)" }} />
-                        <div style={{ textAlign: "left" }}>
-                          <div style={{ fontWeight: 700, fontSize: "1.1rem" }}>Nouveau Joueur</div>
-                          <div style={{ fontSize: "0.85rem", color: "var(--text-muted)" }}>Je réserve pour la première fois</div>
-                        </div>
+                        <span className="auth-choice-icon"><User size={22} /></span>
+                        <span className="auth-choice-text">
+                          <span className="auth-choice-title">Nouveau Joueur</span>
+                          <span className="auth-choice-desc">Je réserve pour la première fois</span>
+                        </span>
+                        <ArrowRight size={18} className="auth-choice-arrow" />
                       </button>
                     </div>
                   ) : authMode === "member" ? (
@@ -582,6 +619,18 @@ export default function BookingFlow() {
                       </div>
                     </form>
                   )}
+
+                  <div className="contact-footer">
+                    <span className="contact-label">Une question ? Contactez-nous</span>
+                    <div className="contact-links">
+                      <a href="mailto:rtcmo2026@gmail.com" className="contact-link">
+                        <Mail size={15} /> rtcmo2026@gmail.com
+                      </a>
+                      <a href="tel:+212668705231" className="contact-link">
+                        <Phone size={15} /> +212 6 68 70 52 31
+                      </a>
+                    </div>
+                  </div>
                 </motion.div>
               )}
 
@@ -886,13 +935,39 @@ export default function BookingFlow() {
                 </motion.div>
               )}
 
-            </AnimatePresence>
+                </AnimatePresence>
+              </div>
+            </div>
+
+            {/* Right Aesthetic Flanking Image Panel */}
+            <aside className="aesthetic-side-panel right" aria-hidden="true">
+              <div className="aesthetic-image-card">
+                <Image
+                  src="/pexels-rodrigo-ortega-2044210904-30864597.jpg"
+                  alt="Raquette et terrain de padel RTCMO"
+                  fill
+                  sizes="(max-width: 1200px) 0vw, 300px"
+                  style={{ objectFit: "cover" }}
+                  priority
+                />
+                <div className="aesthetic-overlay">
+                  <div className="aesthetic-card-badge">
+                    <span className="aesthetic-badge-dot" />
+                    <span>Club Mohammédia</span>
+                  </div>
+                  <div className="aesthetic-card-caption">
+                    <h4>Convivialité & Jeu</h4>
+                    <p>Créneaux de 90 min 7j/7</p>
+                  </div>
+                </div>
+              </div>
+            </aside>
           </div>
         </div>
       </main>
 
       <footer className="booking-footer">
-        <div className="container" style={{ textAlign: "center" }}>
+        <div className="container booking-page-container" style={{ textAlign: "center" }}>
           <p>&copy; {new Date().getFullYear()} Royal Tennis Club de Mohammédia. Tous droits réservés.</p>
         </div>
       </footer>
