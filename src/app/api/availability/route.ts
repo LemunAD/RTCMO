@@ -1,4 +1,4 @@
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin as supabase } from "@/lib/supabaseAdmin";
 import { COURT_IDS } from "@/lib/constants";
 
 export async function GET(request: Request) {
@@ -26,7 +26,8 @@ export async function GET(request: Request) {
   let query = supabase
     .from("bookings")
     .select("booking_date, time_slot")
-    .eq("court_id", Number(courtId));
+    .eq("court_id", Number(courtId))
+    .or("status.neq.cancelled,status.is.null");
 
   if (date) {
     query = query.eq("booking_date", date);

@@ -1,7 +1,8 @@
-import { supabase } from "@/lib/supabase";
+import { supabaseAdmin as supabase } from "@/lib/supabaseAdmin";
 import {
   COURT_IDS,
   TIME_SLOTS,
+  getBookingPrice,
   isPastBookingDate,
 } from "@/lib/constants";
 
@@ -41,7 +42,6 @@ export async function POST(request: Request) {
     "booking_date",
     "time_slot",
     "player_count",
-    "total_price",
     "full_name",
     "phone",
     "email",
@@ -90,7 +90,7 @@ export async function POST(request: Request) {
       booking_date: body.booking_date,
       time_slot: body.time_slot,
       player_count: body.player_count,
-      total_price: body.total_price,
+      total_price: getBookingPrice(body.booking_date),
       full_name: body.full_name,
       phone: body.phone,
       email: body.email,

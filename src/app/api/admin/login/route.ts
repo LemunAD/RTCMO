@@ -5,8 +5,16 @@ import {
   checkAdminPassword,
   createSessionToken,
 } from "@/lib/adminAuth";
+import { clientIp, rateLimited } from "@/lib/bookingPolicy";
 
 export async function POST(request: Request) {
+  if (rateLimited(`admin-login:${clientIp(request)}`, 5, 15 * 60 * 1000)) {
+    return Response.json(
+      { error: "Trop de tentatives. Réessayez dans 15 minutes." },
+      { status: 429 }
+    );
+  }
+
   let body: { password?: string };
 
   try {

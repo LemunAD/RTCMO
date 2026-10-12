@@ -28,6 +28,12 @@ export function isSunday(dateStr: string): boolean {
   return parseBookingDate(dateStr).getDay() === 0;
 }
 
+/** Court price in MAD for a given booking date (weekend rate on Sat/Sun). */
+export function getBookingPrice(dateStr: string): number {
+  const day = parseBookingDate(dateStr).getDay();
+  return day === 0 || day === 6 ? 240 : 200;
+}
+
 export function isPastBookingDate(dateStr: string): boolean {
   return parseBookingDate(dateStr) < startOfDay(new Date());
 }

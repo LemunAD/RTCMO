@@ -40,6 +40,7 @@ import {
 } from "date-fns";
 import { fr } from "date-fns/locale";
 import { COURTS, TIME_SLOTS } from "@/lib/constants";
+import { ManageBookingModal, AccountDrawer } from "./ManagePanels";
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 
@@ -188,6 +189,11 @@ export default function BookingFlow() {
   const [isBooking, setIsBooking]         = useState(false);
   const [bookingRef, setBookingRef]       = useState<string | null>(null);
   const [error, setError]                 = useState<string | null>(null);
+
+  // Self-service panels
+  const [manageOpen, setManageOpen]       = useState(false);
+  const [drawerOpen, setDrawerOpen]       = useState(false);
+  const [sessionUser, setSessionUser]     = useState<{ email: string; name: string } | null>(null);
 
   // Availability state
   const [bookedSlots, setBookedSlots]     = useState<Set<string>>(new Set());
@@ -358,6 +364,21 @@ export default function BookingFlow() {
     }
   }, []);
 
+  // Track the logged-in player so the header can show the Espace Joueur entry.
+  useEffect(() => {
+    const apply = (user: { email?: string; user_metadata?: Record<string, any> } | null | undefined) => {
+      if (user?.email) {
+        const meta = user.user_metadata || {};
+        setSessionUser({ email: user.email, name: meta.full_name || meta.name || "" });
+      } else {
+        setSessionUser(null);
+      }
+    };
+    supabase.auth.getSession().then(({ data }) => apply(data.session?.user));
+    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => apply(session?.user));
+    return () => sub.subscription.unsubscribe();
+  }, []);
+
   useEffect(() => {
     if (step === 2 && selectedCourt) {
       if (viewMode === "classic") {
@@ -462,14 +483,31 @@ export default function BookingFlow() {
               <div className="header-subtitle" style={{ fontSize: "0.7rem", opacity: 0.75, letterSpacing: "0.08em", textTransform: "uppercase" }}>Réservation de Padel</div>
             </div>
           </div>
-          {step <= TOTAL_STEPS && (
-            <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
-              <StepDots total={TOTAL_STEPS} current={step} />
-              <span className="header-subtitle" style={{ fontSize: "0.8rem", opacity: 0.7 }}>
-                Étape {step}/{TOTAL_STEPS}
-              </span>
-            </div>
-          )}
+          <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+            {step <= TOTAL_STEPS && (
+              <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
+                <StepDots total={TOTAL_STEPS} current={step} />
+                <span className="header-subtitle" style={{ fontSize: "0.8rem", opacity: 0.7 }}>
+                  Étape {step}/{TOTAL_STEPS}
+                </span>
+              </div>
+            )}
+            <button
+              id="manage-booking-btn"
+              onClick={() => setManageOpen(true)}
+              style={{ fontSize: "0.8rem", fontWeight: 700, color: "var(--primary)", padding: "7px 12px", borderRadius: "99px", border: "1px solid var(--border)", background: "rgba(255,255,255,0.7)", cursor: "pointer", whiteSpace: "nowrap" }}
+            >
+              Gérer ma réservation
+            </button>
+            <button
+              id="account-drawer-btn"
+              onClick={() => setDrawerOpen(true)}
+              aria-label="Espace joueur"
+              style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.8rem", fontWeight: 700, color: "#fff", padding: "7px 12px", borderRadius: "99px", background: "var(--primary)", cursor: "pointer", whiteSpace: "nowrap" }}
+            >
+              <User size={14} /> {sessionUser ? (sessionUser.name.split(" ")[0] || "Mon espace") : "Espace Joueur"}
+            </button>
+          </div>
         </div>
       </header>
 
@@ -971,6 +1009,16 @@ export default function BookingFlow() {
           <p>&copy; {new Date().getFullYear()} Royal Tennis Club de Mohammédia. Tous droits réservés.</p>
         </div>
       </footer>
+
+      <ManageBookingModal open={manageOpen} onClose={() => setManageOpen(false)} />
+      <AccountDrawer
+        open={drawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        userEmail={sessionUser?.email ?? null}
+        userName={sessionUser?.name ?? ""}
+        onSignOut={() => { supabase.auth.signOut(); }}
+        onLoginRequest={() => { setStep(1); setAuthMode("member"); }}
+      />
     </div>
   );
 }
