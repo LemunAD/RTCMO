@@ -21,5 +21,10 @@ export async function GET(request: Request) {
     return Response.json({ error: error.message }, { status: 500 });
   }
 
-  return Response.json({ bookings: (data ?? []).map(toPublicBooking) });
+  // .ilike() treats '_' and '%' as wildcards (common in e-mail addresses), so it can
+  // over-match. Narrow to an exact case-insensitive match before returning anything.
+  const email = user.email!.toLowerCase();
+  const mine = (data ?? []).filter((b) => (b.email || "").toLowerCase() === email);
+
+  return Response.json({ bookings: mine.map(toPublicBooking) });
 }

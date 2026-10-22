@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, useCallback } from "react";
 import Image from "next/image";
+import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { supabase } from "@/lib/supabase";
 import {
@@ -647,6 +648,9 @@ export default function BookingFlow() {
                       <InputField icon={<Phone size={18} />} label="Téléphone" type="tel" placeholder="ex. +212 6 00 00 00 00" required value={info.phone} onChange={v => setInfo({...info, phone: v})} />
                       <InputField icon={<Mail size={18} />} label="Adresse E-mail" type="email" placeholder="ex. ahmed@example.com" required value={info.email} onChange={v => setInfo({...info, email: v})} />
                       <InputField icon={<Lock size={18} />} label="Mot de passe" type="password" placeholder="••••••••" required value={signUpPassword} onChange={setSignUpPassword} />
+                      <p style={{ fontSize: "0.78rem", color: "var(--text-muted)", lineHeight: 1.5, margin: 0 }}>
+                        En créant un compte, vous acceptez nos <Link href="/cgu" target="_blank" style={{ color: "var(--primary)", fontWeight: 600, textDecoration: "underline" }}>Conditions Générales d'Utilisation</Link>, y compris le traitement de vos données personnelles.
+                      </p>
                       <div className="step-actions" style={{ marginTop: "var(--space-2)" }}>
                         <button type="button" onClick={() => setAuthMode(null)} className="btn-back">
                           <ChevronLeft size={16} /> Retour
@@ -934,6 +938,9 @@ export default function BookingFlow() {
                   <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginBottom: "var(--space-5)" }}>
                     Le paiement s'effectue à l'accueil du club. Vous recevrez une confirmation de votre réservation sur WhatsApp.
                   </p>
+                  <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginTop: "calc(-1 * var(--space-4))", marginBottom: "var(--space-5)" }}>
+                    En confirmant, vous acceptez les <Link href="/cgu" target="_blank" style={{ color: "var(--primary)", fontWeight: 600, textDecoration: "underline" }}>Conditions Générales d'Utilisation</Link> (paiement, annulation, données personnelles).
+                  </p>
 
                   <div className="step-actions">
                     <button onClick={handleBack} disabled={isBooking} className="btn-back">
@@ -1007,6 +1014,9 @@ export default function BookingFlow() {
       <footer className="booking-footer">
         <div className="container booking-page-container" style={{ textAlign: "center" }}>
           <p>&copy; {new Date().getFullYear()} Royal Tennis Club de Mohammédia. Tous droits réservés.</p>
+          <p style={{ marginTop: "6px" }}>
+            <Link href="/cgu" style={{ textDecoration: "underline" }}>Conditions Générales d'Utilisation</Link>
+          </p>
         </div>
       </footer>
 
