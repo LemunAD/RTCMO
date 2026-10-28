@@ -3,10 +3,12 @@ import { isAdminAuthenticated } from "@/lib/adminAuth";
 
 type Ctx = { params: Promise<{ id: string }> };
 
-async function resolveId(ctx: Ctx) {
+async function resolveId(ctx: Ctx): Promise<number | string | null> {
   const { id } = await ctx.params;
-  if (!/^\d+$/.test(id)) return null;
-  return Number(id);
+  if (/^\d+$/.test(id)) return Number(id);
+  // UUID (or other safe token) primary keys
+  if (/^[0-9a-fA-F-]{8,64}$/.test(id)) return id;
+  return null;
 }
 
 export async function PATCH(request: Request, ctx: Ctx) {
@@ -15,7 +17,7 @@ export async function PATCH(request: Request, ctx: Ctx) {
   }
 
   const id = await resolveId(ctx);
-  if (!id) {
+  if (id === null) {
     return Response.json({ error: "Invalid booking id" }, { status: 400 });
   }
 
@@ -60,7 +62,7 @@ export async function DELETE(_request: Request, ctx: Ctx) {
   }
 
   const id = await resolveId(ctx);
-  if (!id) {
+  if (id === null) {
     return Response.json({ error: "Invalid booking id" }, { status: 400 });
   }
 

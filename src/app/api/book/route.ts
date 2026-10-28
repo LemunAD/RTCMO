@@ -1,10 +1,18 @@
 import { supabaseAdmin as supabase } from "@/lib/supabaseAdmin";
+import { format, startOfWeek, endOfWeek } from "date-fns";
 import {
   COURT_IDS,
   TIME_SLOTS,
   getBookingPrice,
-  isPastBookingDate,
 } from "@/lib/constants";
+import {
+  phonesMatch,
+  isPastClubDate,
+  isBeyondBookingWindow,
+  MAX_WEEKLY_BOOKINGS,
+  MAX_BOOKING_DAYS,
+} from "@/lib/bookingPolicy";
+import { getUserFromRequest } from "@/lib/userAuth";
 
 interface BookingPayload {
   court_id: number;
@@ -28,6 +36,14 @@ function generateRef(): string {
 }
 
 export async function POST(request: Request) {
+  const user = await getUserFromRequest(request);
+  if (user && !user.email_confirmed_at) {
+    return Response.json(
+      { error: "Veuillez d'abord confirmer votre adresse e-mail avant de réserver." },
+      { status: 403 }
+    );
+  }
+
   let body: BookingPayload;
 
   try {
@@ -55,6 +71,13 @@ export async function POST(request: Request) {
     }
   }
 
+  if (!body.full_name.trim()) {
+    return Response.json(
+      { error: "Le nom complet est obligatoire." },
+      { status: 400 }
+    );
+  }
+
   if (![2, 4].includes(body.player_count)) {
     return Response.json(
       { error: "player_count must be 2 or 4" },
@@ -74,9 +97,54 @@ export async function POST(request: Request) {
     return Response.json({ error: "Invalid booking_date format" }, { status: 400 });
   }
 
-  if (isPastBookingDate(body.booking_date)) {
+  if (isPastClubDate(body.booking_date)) {
     return Response.json(
       { error: "La date sélectionnée est déjà passée." },
+      { status: 400 }
+    );
+  }
+
+  if (isBeyondBookingWindow(body.booking_date)) {
+    return Response.json(
+      {
+        error: `Les réservations ne sont ouvertes que pour les ${MAX_BOOKING_DAYS} prochains jours (2 semaines).`,
+        code: "BEYOND_BOOKING_WINDOW",
+      },
+      { status: 400 }
+    );
+  }
+
+  // Weekly booking limit: maximum 2 bookings per week (Monday to Sunday) per user
+  const [by, bm, bd] = body.booking_date.split("-").map(Number);
+  const targetDate = new Date(by, bm - 1, bd);
+  const weekStart = format(startOfWeek(targetDate, { weekStartsOn: 1 }), "yyyy-MM-dd");
+  const weekEnd = format(endOfWeek(targetDate, { weekStartsOn: 1 }), "yyyy-MM-dd");
+
+  const { data: weekBookings, error: weekQueryError } = await supabase
+    .from("bookings")
+    .select("id, email, phone, status, booking_date")
+    .gte("booking_date", weekStart)
+    .lte("booking_date", weekEnd)
+    .or("status.neq.cancelled,status.is.null");
+
+  if (weekQueryError) {
+    return Response.json({ error: weekQueryError.message }, { status: 500 });
+  }
+
+  const normalizedEmail = body.email.trim().toLowerCase();
+  const userBookingsThisWeek = (weekBookings ?? []).filter((b) => {
+    const emailMatch = (b.email || "").trim().toLowerCase() === normalizedEmail;
+    const phoneMatch = phonesMatch(b.phone, body.phone);
+    return emailMatch || phoneMatch;
+  });
+
+  if (userBookingsThisWeek.length >= MAX_WEEKLY_BOOKINGS) {
+    return Response.json(
+      {
+        error:
+          "Limite atteinte : vous ne pouvez réserver que 2 créneaux par semaine au maximum.",
+        code: "WEEKLY_LIMIT_REACHED",
+      },
       { status: 400 }
     );
   }
@@ -91,11 +159,11 @@ export async function POST(request: Request) {
       time_slot: body.time_slot,
       player_count: body.player_count,
       total_price: getBookingPrice(body.booking_date),
-      full_name: body.full_name,
-      phone: body.phone,
-      email: body.email,
+      full_name: body.full_name.trim(),
+      phone: body.phone.trim(),
+      email: normalizedEmail,
       address: "",
-      other_players: body.other_players ?? [],
+      other_players: [],
       booking_ref: bookingRef,
       status: "pending",
     })

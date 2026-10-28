@@ -1,8 +1,40 @@
 // Shared rules for client-side booking management (lookup / cancel).
 // Server-only helpers: used by Route Handlers under src/app/api/manage/**.
 
-export const CANCEL_CUTOFF_HOURS = 2;
+export const CANCEL_CUTOFF_HOURS = 24;
 export const CLUB_TIMEZONE = "Africa/Casablanca";
+export const MAX_BOOKING_DAYS = 14;
+export const MAX_WEEKLY_BOOKINGS = 2;
+
+/**
+ * Returns the club's current calendar date (at 00:00:00 local club time),
+ * safe from server UTC differences.
+ */
+export function getClubToday(): Date {
+  const parts = new Intl.DateTimeFormat("en-CA", {
+    timeZone: CLUB_TIMEZONE,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date());
+  const get = (t: string) => Number(parts.find((p) => p.type === t)?.value);
+  return new Date(get("year"), get("month") - 1, get("day"));
+}
+
+export function isPastClubDate(dateStr: string): boolean {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const target = new Date(y, m - 1, d);
+  const today = getClubToday();
+  return target < today;
+}
+
+export function isBeyondBookingWindow(dateStr: string): boolean {
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const target = new Date(y, m - 1, d);
+  const today = getClubToday();
+  const maxDate = new Date(today.getFullYear(), today.getMonth(), today.getDate() + MAX_BOOKING_DAYS);
+  return target > maxDate;
+}
 
 export interface PublicBooking {
   booking_ref: string;

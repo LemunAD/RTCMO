@@ -17,9 +17,9 @@ const LAST_UPDATE = "20 octobre 2026";
 
 const CLUB = {
   name: "Royal Tennis Club de Mohammédia (RTCMO)",
-  legalForm: "[À COMPLÉTER — ex. association sportive]",
-  address: "[À COMPLÉTER — adresse du siège, Mohammédia, Maroc]",
-  registration: "[À COMPLÉTER — RC / ICE / IF]",
+  legalForm: "Association sportive",
+  address: "1 Boulevard de Zenata, Mohammédia, Casablanca-Settat, Maroc",
+  registration: "ICE : 00173295000046",
   email: "rtcmo2026@gmail.com",
   phone: "+212 6 68 70 52 31",
 };
@@ -123,6 +123,7 @@ const sections: Section[] = [
           items={[
             <>Le Club dispose de 3 terrains (deux couverts, un extérieur) ; les créneaux durent 90 minutes, de 08h00 à 23h00.</>,
             <>La réservation porte sur un terrain (et non par joueur) pour 2 ou 4 joueurs.</>,
+            <>Afin de garantir un accès équitable aux installations, les réservations sont ouvertes pour les 2 semaines à venir (14 jours maximum) et limitées à deux (2) réservations par semaine et par utilisateur.</>,
             <>Le créneau est attribué selon le principe « premier arrivé, premier servi » et n'est garanti qu'à la confirmation de la Réservation (et, le cas échéant, du paiement).</>,
             <>Le Club peut annuler ou déplacer un créneau pour des raisons de force majeure, de sécurité, de maintenance, d'événement sportif ou d'intempéries (terrain extérieur) ; l'Utilisateur est alors remboursé intégralement ou se voit proposer un autre créneau.</>,
           ]}
@@ -181,7 +182,7 @@ const sections: Section[] = [
       <>
         <UL
           items={[
-            <><strong>Annulation par l'Utilisateur</strong> : possible depuis le site (« Gérer ma réservation » ou « Espace Joueur ») jusqu'à <strong>2 heures avant</strong> le début du créneau (heure du Maroc). Passé ce délai, aucune annulation n'est possible et la Réservation reste due.</>,
+            <><strong>Annulation par l'Utilisateur</strong> : possible depuis le site (« Gérer ma réservation » ou « Espace Joueur ») jusqu'à <strong>24 heures avant</strong> le début du créneau (heure du Maroc). Passé ce délai, aucune annulation n'est possible et la Réservation reste due.</>,
             <><strong>Remboursement</strong> : une Réservation payée en ligne et annulée dans les délais est remboursée <strong>intégralement</strong>, sur la carte utilisée pour le paiement, sans frais. Le délai d'affichage du crédit dépend de la banque émettrice et peut atteindre [À COMPLÉTER — ex. 10] jours ouvrés après la demande.</>,
             <><strong>Absence (no-show) ou annulation tardive</strong> : aucun remboursement.</>,
             <><strong>Annulation par le Club</strong> : remboursement intégral ou proposition d'un autre créneau (voir article 5).</>,
@@ -224,15 +225,11 @@ const sections: Section[] = [
           items={[
             <><strong>Identité et contact</strong> : nom complet, numéro de téléphone, adresse e-mail.</>,
             <><strong>Compte</strong> : identifiants de connexion ; le mot de passe est stocké sous forme chiffrée (haché) et n'est jamais lisible par le Club.</>,
-            <><strong>Réservation</strong> : terrain, date, créneau, nombre de joueurs, noms facultatifs des partenaires de jeu, référence, statut, montant.</>,
+            <><strong>Réservation</strong> : terrain, date, créneau, nombre de joueurs, nom complet du réservataire, référence, statut, montant.</>,
             <><strong>Paiement</strong> : identifiant et statut de la transaction, montant, date, code de réponse de la banque. <strong>Aucune donnée complète de carte bancaire n'est collectée ni conservée par le Club</strong> ; elles sont traitées exclusivement par le CMI et les établissements bancaires.</>,
             <><strong>Données techniques</strong> : adresse IP, type d'appareil et de navigateur, journaux de connexion, à des fins de sécurité et de prévention de la fraude.</>,
           ]}
         />
-        <P>
-          Les noms des partenaires de jeu sont saisis sous la responsabilité de l'Utilisateur, qui déclare être
-          autorisé à les communiquer.
-        </P>
 
         <h3 style={h3}>10.2 Finalités et bases légales</h3>
         <UL
@@ -339,7 +336,7 @@ const sections: Section[] = [
       <>
         <P>
           Les CGU sont soumises au droit marocain. En cas de litige, et à défaut d'accord amiable, les tribunaux
-          compétents de [À COMPLÉTER — ex. Mohammédia / Casablanca] sont seuls compétents, sous réserve des
+          compétents de Mohammédia sont seuls compétents, sous réserve des
           règles impératives applicables aux consommateurs.
         </P>
         <P>

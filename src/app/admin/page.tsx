@@ -86,6 +86,12 @@ function StatusBadge({ status, bookingId, onStatusChange }: {
         body: JSON.stringify({ status: newStatus }),
       });
       if (res.ok) onStatusChange(bookingId, newStatus);
+      else {
+        const data = await res.json().catch(() => ({}));
+        alert(`Impossible de changer le statut (${res.status}) : ${data.error ?? "erreur inconnue"}`);
+      }
+    } catch {
+      alert("Impossible de changer le statut : erreur réseau.");
     } finally { setUpdating(false); setOpen(false); }
   };
 

@@ -1473,3 +1473,29 @@ button {
     display: none;
   }
 }
+
+/* -- Header actions / hamburger -- */
+.header-actions-wrap { display: flex; align-items: center; gap: 14px; position: relative; }
+.header-actions { display: flex; align-items: center; gap: 10px; }
+.header-btn-secondary, .header-btn-primary {
+  font-size: 0.8rem; font-weight: 700; padding: 7px 12px; border-radius: 99px;
+  cursor: pointer; white-space: nowrap; display: flex; align-items: center; gap: 6px;
+}
+.header-btn-secondary { color: var(--primary); border: 1px solid var(--border); background: rgba(255,255,255,0.7); }
+.header-btn-primary { color: #fff; background: var(--primary); border: none; }
+.header-menu-toggle {
+  display: none; align-items: center; justify-content: center; width: 40px; height: 40px;
+  border-radius: 10px; border: 1px solid var(--border); background: rgba(255,255,255,0.8);
+  color: var(--primary); cursor: pointer;
+}
+@media (max-width: 640px) {
+  .header-menu-toggle { display: flex; }
+  .header-actions {
+    display: none; position: absolute; top: calc(100% + 10px); right: 0; z-index: 100;
+    flex-direction: column; align-items: stretch; gap: 8px; min-width: 220px; padding: 12px;
+    background: #fff; border: 1px solid var(--border); border-radius: 14px;
+    box-shadow: 0 12px 32px rgba(0,0,0,0.15);
+  }
+  .header-actions.open { display: flex; }
+  .header-btn-secondary, .header-btn-primary { justify-content: center; padding: 11px 14px; font-size: 0.9rem; }
+}

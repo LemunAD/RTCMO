@@ -21,7 +21,9 @@ import {
   Loader2,
   Lock,
   CalendarDays,
-  LayoutGrid
+  LayoutGrid,
+  Menu,
+  X
 } from "lucide-react";
 import {
   format,
@@ -37,7 +39,8 @@ import {
   isSameDay,
   addMonths,
   getDaysInMonth,
-  addWeeks
+  addWeeks,
+  addDays
 } from "date-fns";
 import { fr } from "date-fns/locale";
 import { COURTS, TIME_SLOTS } from "@/lib/constants";
@@ -164,14 +167,19 @@ export default function BookingFlow() {
   const [step, setStep]                 = useState(1);
   
   // Step 1 Auth state
-  const [authMode, setAuthMode]         = useState<"member" | "guest" | "forgot" | null>(null);
+  const [authMode, setAuthMode]         = useState<"member" | "guest" | "forgot" | "confirm_email" | null>(null);
   const [resetSent, setResetSent]       = useState(false);
   const [isSendingReset, setIsSendingReset] = useState(false);
   const [loginEmail, setLoginEmail]     = useState("");
   const [loginPassword, setLoginPassword] = useState("");
   const [isLoggingIn, setIsLoggingIn]   = useState(false);
   const [signUpPassword, setSignUpPassword] = useState("");
+  const [signUpConfirmPassword, setSignUpConfirmPassword] = useState("");
   const [isSigningUp, setIsSigningUp]   = useState(false);
+  const [registeredEmail, setRegisteredEmail] = useState("");
+  const [isResendingConfirm, setIsResendingConfirm] = useState(false);
+  const [resendSuccess, setResendSuccess] = useState(false);
+  const [verifiedSuccessToast, setVerifiedSuccessToast] = useState(false);
 
   // Step 2 Court & Time state
   const [viewMode, setViewMode]         = useState<"classic" | "weekly">("classic");
@@ -184,7 +192,6 @@ export default function BookingFlow() {
   const [info, setInfo] = useState<PlayerInfo>({
     fullName: "", phone: "", email: "",
   });
-  const [otherPlayers, setOtherPlayers]   = useState<string[]>(['', '', '']);
   
   // Submission
   const [isBooking, setIsBooking]         = useState(false);
@@ -194,6 +201,7 @@ export default function BookingFlow() {
   // Self-service panels
   const [manageOpen, setManageOpen]       = useState(false);
   const [drawerOpen, setDrawerOpen]       = useState(false);
+  const [menuOpen, setMenuOpen]           = useState(false);
   const [sessionUser, setSessionUser]     = useState<{ email: string; name: string } | null>(null);
 
   // Availability state
@@ -207,15 +215,9 @@ export default function BookingFlow() {
 
   const today = startOfDay(new Date());
 
+  // Available booking window: exactly 2 weeks (14 days) from today
   const maxDate = useMemo(() => {
-    const currentMonthEnd = endOfMonth(today);
-    const daysInMonth = getDaysInMonth(today);
-    const dayOfMonth = today.getDate();
-    const isLastWeek = dayOfMonth > daysInMonth - 7;
-    if (isLastWeek) {
-      return endOfMonth(addMonths(today, 1));
-    }
-    return currentMonthEnd;
+    return addDays(today, 14);
   }, [today]);
 
   const calendarDays = useMemo(() => {
@@ -265,20 +267,35 @@ export default function BookingFlow() {
     setError(null);
     try {
       const { data, error } = await supabase.auth.signInWithPassword({
-        email: loginEmail,
+        email: loginEmail.trim(),
         password: loginPassword,
       });
       if (error) throw error;
+
+      if (data.user && !data.user.email_confirmed_at) {
+        await supabase.auth.signOut();
+        setRegisteredEmail(loginEmail.trim());
+        setAuthMode("confirm_email");
+        setError("Votre adresse e-mail n'a pas encore été confirmée. Veuillez vérifier votre boîte de réception.");
+        return;
+      }
       
       const meta = data.user?.user_metadata || {};
       setInfo({
         fullName: meta.full_name || meta.name || "",
         phone: meta.phone || "",
-        email: data.user?.email || loginEmail,
+        email: data.user?.email || loginEmail.trim(),
       });
       handleNext();
     } catch (err: any) {
-      setError(err.message || "Identifiants incorrects.");
+      const msg = err.message || "";
+      if (msg.toLowerCase().includes("email not confirmed") || (err as any).code === "email_not_confirmed") {
+        setRegisteredEmail(loginEmail.trim());
+        setAuthMode("confirm_email");
+        setError("Votre adresse e-mail n'a pas encore été confirmée. Veuillez vérifier votre boîte de réception.");
+      } else {
+        setError(msg || "Identifiants incorrects.");
+      }
     } finally {
       setIsLoggingIn(false);
     }
@@ -304,27 +321,76 @@ export default function BookingFlow() {
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!infoComplete || !signUpPassword) return;
+    if (!infoComplete || !signUpPassword || !signUpConfirmPassword) return;
+    if (signUpPassword.length < 6) {
+      setError("Le mot de passe doit contenir au moins 6 caractères.");
+      return;
+    }
+    if (signUpPassword !== signUpConfirmPassword) {
+      setError("Les mots de passe ne correspondent pas.");
+      return;
+    }
+
     setIsSigningUp(true);
     setError(null);
     try {
+      const siteUrl = typeof window !== "undefined" ? window.location.origin : "";
       const { data, error } = await supabase.auth.signUp({
         email: info.email.trim(),
         password: signUpPassword,
         options: {
+          emailRedirectTo: `${siteUrl}/?verified=true`,
           data: {
             full_name: info.fullName.trim(),
             phone: info.phone.trim(),
           },
         },
       });
-      if (error) throw error;
-      
-      handleNext();
+      if (error) {
+        if (error.message?.toLowerCase().includes("already registered") || (error as any).code === "user_already_exists") {
+          throw new Error("Un compte existe déjà avec cette adresse e-mail. Veuillez vous connecter.");
+        }
+        throw error;
+      }
+
+      // Enforce email confirmation before accessing the booking form
+      if (!data.session || !data.user?.email_confirmed_at) {
+        setRegisteredEmail(info.email.trim());
+        setSignUpPassword("");
+        setSignUpConfirmPassword("");
+        setResendSuccess(false);
+        setAuthMode("confirm_email");
+      } else {
+        handleNext();
+      }
     } catch (err: any) {
       setError(err.message || "Erreur lors de l'inscription.");
     } finally {
       setIsSigningUp(false);
+    }
+  };
+
+  const handleResendConfirmation = async () => {
+    const targetEmail = registeredEmail || info.email.trim();
+    if (!targetEmail) return;
+    setIsResendingConfirm(true);
+    setError(null);
+    setResendSuccess(false);
+    try {
+      const siteUrl = typeof window !== "undefined" ? window.location.origin : "";
+      const { error } = await supabase.auth.resend({
+        type: "signup",
+        email: targetEmail,
+        options: {
+          emailRedirectTo: `${siteUrl}/?verified=true`,
+        },
+      });
+      if (error) throw error;
+      setResendSuccess(true);
+    } catch (err: any) {
+      setError(err.message || "Impossible de renvoyer l'e-mail de confirmation. Veuillez patienter avant de réessayer.");
+    } finally {
+      setIsResendingConfirm(false);
     }
   };
 
@@ -367,18 +433,37 @@ export default function BookingFlow() {
 
   // Track the logged-in player so the header can show the Espace Joueur entry.
   useEffect(() => {
-    const apply = (user: { email?: string; user_metadata?: Record<string, any> } | null | undefined) => {
+    const apply = (user: { email?: string; email_confirmed_at?: string; user_metadata?: Record<string, any> } | null | undefined) => {
       if (user?.email) {
         const meta = user.user_metadata || {};
         setSessionUser({ email: user.email, name: meta.full_name || meta.name || "" });
+        if (user.email_confirmed_at) {
+          setInfo((prev) => ({
+            fullName: prev.fullName || meta.full_name || meta.name || "",
+            phone: prev.phone || meta.phone || "",
+            email: user.email || prev.email,
+          }));
+        }
       } else {
         setSessionUser(null);
       }
     };
-    supabase.auth.getSession().then(({ data }) => apply(data.session?.user));
-    const { data: sub } = supabase.auth.onAuthStateChange((_event, session) => apply(session?.user));
+    supabase.auth.getSession().then(({ data }) => apply(data.session?.user as any));
+    const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
+      apply(session?.user as any);
+      if (event === "SIGNED_IN" && session?.user?.email_confirmed_at && step === 1) {
+        const meta = session.user.user_metadata || {};
+        setInfo({
+          fullName: meta.full_name || meta.name || "",
+          phone: meta.phone || "",
+          email: session.user.email || "",
+        });
+        setVerifiedSuccessToast(true);
+        setStep(2);
+      }
+    });
     return () => sub.subscription.unsubscribe();
-  }, []);
+  }, [step]);
 
   useEffect(() => {
     if (step === 2 && selectedCourt) {
@@ -390,22 +475,38 @@ export default function BookingFlow() {
     }
   }, [step, selectedCourt, selectedDate, calendarWeek, viewMode, fetchDailyAvailability, fetchWeeklyAvailability]);
 
-  // If Supabase falls back to the Site URL, forward recovery links to the reset page.
+  // If Supabase falls back to the Site URL, forward recovery links to the reset page,
+  // or handle email verification redirects.
   useEffect(() => {
     const { hash, search } = window.location;
     if (hash.includes("type=recovery") || search.includes("type=recovery")) {
       window.location.replace(`/reset-password${search}${hash}`);
+      return;
+    }
+
+    const isVerifiedLink =
+      search.includes("verified=true") ||
+      hash.includes("type=signup") ||
+      hash.includes("type=email_confirmation");
+
+    if (isVerifiedLink) {
+      setVerifiedSuccessToast(true);
+      supabase.auth.getSession().then(({ data }) => {
+        const u = data.session?.user;
+        if (u) {
+          const meta = u.user_metadata || {};
+          setInfo({
+            fullName: meta.full_name || meta.name || "",
+            phone: meta.phone || "",
+            email: u.email || "",
+          });
+          setSessionUser({ email: u.email || "", name: meta.full_name || meta.name || "" });
+          setStep(2);
+          window.history.replaceState(null, "", window.location.pathname);
+        }
+      });
     }
   }, []);
-
-  useEffect(() => {
-    const needed = playerCount - 1;
-    setOtherPlayers(prev => {
-      if (prev.length === needed) return prev;
-      if (prev.length > needed) return prev.slice(0, needed);
-      return [...prev, ...Array(needed - prev.length).fill('')];
-    });
-  }, [playerCount]);
 
   const handleConfirm = async () => {
     if (!selectedCourt || !selectedTime) return;
@@ -413,9 +514,23 @@ export default function BookingFlow() {
     setError(null);
 
     try {
+      const { data: sessionData } = await supabase.auth.getSession();
+      const session = sessionData.session;
+      if (session?.user && !session.user.email_confirmed_at) {
+        setError("Veuillez d'abord confirmer votre adresse e-mail pour finaliser la réservation.");
+        setStep(1);
+        setAuthMode("confirm_email");
+        setIsBooking(false);
+        return;
+      }
+
+      const token = session?.access_token;
       const res = await fetch("/api/book", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({
           court_id: selectedCourt,
           booking_date: format(selectedDate, "yyyy-MM-dd"),
@@ -425,7 +540,7 @@ export default function BookingFlow() {
           full_name: info.fullName.trim(),
           phone: info.phone.trim(),
           email: info.email.trim(),
-          other_players: otherPlayers.map(n => n.trim()),
+          other_players: [],
         }),
       });
 
@@ -440,6 +555,12 @@ export default function BookingFlow() {
               ? fetchDailyAvailability(selectedCourt, selectedDate)
               : fetchWeeklyAvailability(selectedCourt, calendarWeek);
           }
+        } else if (data.code === "WEEKLY_LIMIT_REACHED") {
+          setError(data.error || "Limite atteinte : vous ne pouvez réserver que 2 créneaux par semaine au maximum.");
+          setStep(2);
+        } else if (data.code === "BEYOND_BOOKING_WINDOW") {
+          setError(data.error || "Les réservations ne sont ouvertes que pour les 2 prochaines semaines.");
+          setStep(2);
         } else {
           setError(data.error || "Un problème est survenu. Veuillez réessayer.");
         }
@@ -463,7 +584,9 @@ export default function BookingFlow() {
     setError(null);
     setAuthMode(null);
     setLoginPassword("");
-    setOtherPlayers(['', '', '']);
+    setSignUpPassword("");
+    setSignUpConfirmPassword("");
+    setResendSuccess(false);
   };
 
   const slideProps = {
@@ -484,7 +607,7 @@ export default function BookingFlow() {
               <div className="header-subtitle" style={{ fontSize: "0.7rem", opacity: 0.75, letterSpacing: "0.08em", textTransform: "uppercase" }}>Réservation de Padel</div>
             </div>
           </div>
-          <div style={{ display: "flex", alignItems: "center", gap: "14px" }}>
+          <div className="header-actions-wrap">
             {step <= TOTAL_STEPS && (
               <div style={{ display: "flex", alignItems: "center", gap: "12px" }}>
                 <StepDots total={TOTAL_STEPS} current={step} />
@@ -494,25 +617,68 @@ export default function BookingFlow() {
               </div>
             )}
             <button
-              id="manage-booking-btn"
-              onClick={() => setManageOpen(true)}
-              style={{ fontSize: "0.8rem", fontWeight: 700, color: "var(--primary)", padding: "7px 12px", borderRadius: "99px", border: "1px solid var(--border)", background: "rgba(255,255,255,0.7)", cursor: "pointer", whiteSpace: "nowrap" }}
+              id="header-menu-btn"
+              className="header-menu-toggle"
+              onClick={() => setMenuOpen(o => !o)}
+              aria-label={menuOpen ? "Fermer le menu" : "Ouvrir le menu"}
+              aria-expanded={menuOpen}
             >
-              Gérer ma réservation
+              {menuOpen ? <X size={22} /> : <Menu size={22} />}
             </button>
-            <button
-              id="account-drawer-btn"
-              onClick={() => setDrawerOpen(true)}
-              aria-label="Espace joueur"
-              style={{ display: "flex", alignItems: "center", gap: "6px", fontSize: "0.8rem", fontWeight: 700, color: "#fff", padding: "7px 12px", borderRadius: "99px", background: "var(--primary)", cursor: "pointer", whiteSpace: "nowrap" }}
-            >
-              <User size={14} /> {sessionUser ? (sessionUser.name.split(" ")[0] || "Mon espace") : "Espace Joueur"}
-            </button>
+            <div className={`header-actions ${menuOpen ? "open" : ""}`}>
+              <button
+                id="manage-booking-btn"
+                className="header-btn-secondary"
+                onClick={() => { setMenuOpen(false); setManageOpen(true); }}
+              >
+                Gérer ma réservation
+              </button>
+              <button
+                id="account-drawer-btn"
+                className="header-btn-primary"
+                onClick={() => { setMenuOpen(false); setDrawerOpen(true); }}
+                aria-label="Espace joueur"
+              >
+                <User size={14} /> {sessionUser ? (sessionUser.name.split(" ")[0] || "Mon espace") : "Espace Joueur"}
+              </button>
+            </div>
           </div>
         </div>
       </header>
 
       <AnimatePresence>
+        {verifiedSuccessToast && (
+          <div className="container" style={{ maxWidth: "820px", position: "relative", zIndex: 50, marginTop: "var(--space-3)" }}>
+            <motion.div
+              initial={{ opacity: 0, y: -20 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: -20 }}
+              style={{
+                background: "#ECFDF5",
+                border: "1px solid #A7F3D0",
+                color: "#065F46",
+                padding: "12px 16px",
+                borderRadius: "var(--radius-md)",
+                display: "flex",
+                alignItems: "center",
+                gap: "10px",
+                fontSize: "0.9rem",
+                boxShadow: "0 4px 12px rgba(0,0,0,0.06)",
+              }}
+            >
+              <CheckCircle2 size={18} style={{ color: "#059669", flexShrink: 0 }} />
+              <span style={{ flex: 1, fontWeight: 500 }}>
+                Votre adresse e-mail a été confirmée avec succès ! Vous pouvez maintenant choisir votre terrain et réserver votre créneau.
+              </span>
+              <button
+                onClick={() => setVerifiedSuccessToast(false)}
+                style={{ color: "#065F46", padding: "4px", fontSize: "1.2rem", lineHeight: 1, cursor: "pointer", background: "none", border: "none" }}
+              >
+                ×
+              </button>
+            </motion.div>
+          </div>
+        )}
         {error && (
           <div className="container" style={{ maxWidth: "820px", position: "relative", zIndex: 50, marginTop: "var(--space-3)" }}>
             <ErrorToast message={error} onDismiss={() => setError(null)} />
@@ -567,23 +733,117 @@ export default function BookingFlow() {
                   </div>
 
                   {!authMode ? (
-                    <div className="auth-choice-list">
-                      <button className="auth-choice-btn" onClick={() => setAuthMode("member")}>
-                        <span className="auth-choice-icon"><Lock size={22} /></span>
-                        <span className="auth-choice-text">
-                          <span className="auth-choice-title">Membre du Club</span>
-                          <span className="auth-choice-desc">J'ai déjà un compte</span>
-                        </span>
-                        <ArrowRight size={18} className="auth-choice-arrow" />
-                      </button>
-                      <button className="auth-choice-btn" onClick={() => setAuthMode("guest")}>
-                        <span className="auth-choice-icon"><User size={22} /></span>
-                        <span className="auth-choice-text">
-                          <span className="auth-choice-title">Nouveau Joueur</span>
-                          <span className="auth-choice-desc">Je réserve pour la première fois</span>
-                        </span>
-                        <ArrowRight size={18} className="auth-choice-arrow" />
-                      </button>
+                    sessionUser ? (
+                      <div style={{ maxWidth: "400px", margin: "0 auto", textAlign: "center", display: "flex", flexDirection: "column", gap: "var(--space-3)" }}>
+                        <div style={{ background: "rgba(15,81,50,0.07)", padding: "18px", borderRadius: "var(--radius-md)", border: "1px solid var(--border)" }}>
+                          <p style={{ margin: "0 0 4px", fontSize: "0.85rem", color: "var(--text-muted)" }}>Compte vérifié et connecté :</p>
+                          <p style={{ margin: 0, fontWeight: 800, fontSize: "1.1rem", color: "var(--primary)" }}>{sessionUser.name || sessionUser.email}</p>
+                          <p style={{ margin: "4px 0 0", fontSize: "0.82rem", color: "var(--text-muted)" }}>{sessionUser.email}</p>
+                        </div>
+                        <button onClick={handleNext} className="btn-primary" style={{ justifyContent: "center" }}>
+                          Continuer ma réservation <ArrowRight size={16} />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => { supabase.auth.signOut(); setSessionUser(null); }}
+                          style={{ background: "none", border: "none", color: "var(--text-muted)", fontSize: "0.85rem", cursor: "pointer", textDecoration: "underline", padding: "4px" }}
+                        >
+                          Se connecter avec un autre compte
+                        </button>
+                      </div>
+                    ) : (
+                      <div className="auth-choice-list">
+                        <button className="auth-choice-btn" onClick={() => { setError(null); setAuthMode("member"); }}>
+                          <span className="auth-choice-icon"><Lock size={22} /></span>
+                          <span className="auth-choice-text">
+                            <span className="auth-choice-title">Membre du Club</span>
+                            <span className="auth-choice-desc">J'ai déjà un compte</span>
+                          </span>
+                          <ArrowRight size={18} className="auth-choice-arrow" />
+                        </button>
+                        <button className="auth-choice-btn" onClick={() => { setError(null); setAuthMode("guest"); }}>
+                          <span className="auth-choice-icon"><User size={22} /></span>
+                          <span className="auth-choice-text">
+                            <span className="auth-choice-title">Nouveau Joueur</span>
+                            <span className="auth-choice-desc">Je réserve pour la première fois</span>
+                          </span>
+                          <ArrowRight size={18} className="auth-choice-arrow" />
+                        </button>
+                      </div>
+                    )
+                  ) : authMode === "confirm_email" ? (
+                    <div style={{ maxWidth: "440px", margin: "0 auto", textAlign: "center", display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+                      <div style={{
+                        width: "64px",
+                        height: "64px",
+                        borderRadius: "50%",
+                        background: "rgba(15,81,50,0.1)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        margin: "0 auto",
+                        color: "var(--primary)",
+                      }}>
+                        <Mail size={32} />
+                      </div>
+
+                      <div>
+                        <h2 style={{ fontSize: "1.35rem", fontWeight: 800, color: "var(--primary)", margin: "0 0 8px" }}>
+                          Confirmez votre adresse e-mail
+                        </h2>
+                        <p style={{ color: "var(--text-muted)", fontSize: "0.92rem", lineHeight: 1.6, margin: 0 }}>
+                          Un e-mail d'activation vient d'être envoyé à :<br />
+                          <strong style={{ color: "var(--text-main)", fontSize: "1rem" }}>{registeredEmail || info.email}</strong>
+                        </p>
+                      </div>
+
+                      <div style={{ background: "rgba(15,81,50,0.06)", border: "1px solid var(--border)", borderRadius: "var(--radius-md)", padding: "14px", textAlign: "left", fontSize: "0.85rem", color: "var(--text-main)", lineHeight: 1.6 }}>
+                        <div style={{ display: "flex", gap: "8px", alignItems: "flex-start", marginBottom: "6px", fontWeight: 700, color: "var(--primary)" }}>
+                          <CheckCircle2 size={16} style={{ flexShrink: 0, marginTop: "2px" }} />
+                          <span>Confirmation requise avant réservation</span>
+                        </div>
+                        Veuillez cliquer sur le lien reçu dans votre messagerie pour valider votre compte. Dès validation, vous pourrez vous connecter et accéder au calendrier de réservation.
+                      </div>
+
+                      {resendSuccess && (
+                        <div style={{ background: "#ECFDF5", border: "1px solid #A7F3D0", color: "#065F46", padding: "10px 14px", borderRadius: "var(--radius-md)", fontSize: "0.85rem", display: "flex", alignItems: "center", gap: "8px", textAlign: "left" }}>
+                          <CheckCircle2 size={16} style={{ flexShrink: 0 }} />
+                          <span>Un nouvel e-mail de confirmation a été envoyé ! Pensez à vérifier vos courriers indésirables (spams).</span>
+                        </div>
+                      )}
+
+                      <div style={{ display: "flex", flexDirection: "column", gap: "10px", marginTop: "var(--space-2)" }}>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setLoginEmail(registeredEmail || info.email);
+                            setAuthMode("member");
+                            setError(null);
+                          }}
+                          className="btn-primary"
+                          style={{ justifyContent: "center" }}
+                        >
+                          J'ai confirmé mon e-mail / Me connecter <ArrowRight size={16} />
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={handleResendConfirmation}
+                          disabled={isResendingConfirm}
+                          className="btn-back"
+                          style={{ justifyContent: "center" }}
+                        >
+                          {isResendingConfirm ? <Loader2 size={16} className="spin-icon" /> : "Renvoyer l'e-mail de confirmation"}
+                        </button>
+
+                        <button
+                          type="button"
+                          onClick={() => { setAuthMode(null); setError(null); }}
+                          style={{ background: "none", border: "none", color: "var(--text-muted)", fontSize: "0.85rem", cursor: "pointer", textDecoration: "underline", padding: "6px" }}
+                        >
+                          Retour à l'accueil
+                        </button>
+                      </div>
                     </div>
                   ) : authMode === "member" ? (
                     <form onSubmit={handleLogin} style={{ maxWidth: "400px", margin: "0 auto", display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
@@ -603,7 +863,7 @@ export default function BookingFlow() {
                         Mot de passe oublié ?
                       </button>
                       <div className="step-actions" style={{ marginTop: "var(--space-2)" }}>
-                        <button type="button" onClick={() => setAuthMode(null)} className="btn-back">
+                        <button type="button" onClick={() => { setAuthMode(null); setError(null); }} className="btn-back">
                           <ChevronLeft size={16} /> Retour
                         </button>
                         <button type="submit" disabled={isLoggingIn} className="btn-primary" style={{ flex: 1, justifyContent: "center" }}>
@@ -631,7 +891,7 @@ export default function BookingFlow() {
                         </>
                       )}
                       <div className="step-actions" style={{ marginTop: "var(--space-2)" }}>
-                        <button type="button" onClick={() => setAuthMode("member")} className="btn-back">
+                        <button type="button" onClick={() => { setAuthMode("member"); setError(null); }} className="btn-back">
                           <ChevronLeft size={16} /> Retour
                         </button>
                         {!resetSent && (
@@ -647,16 +907,22 @@ export default function BookingFlow() {
                       <InputField icon={<User size={18} />} label="Nom Complet" placeholder="ex. Ahmed Benali" required value={info.fullName} onChange={v => setInfo({...info, fullName: v})} />
                       <InputField icon={<Phone size={18} />} label="Téléphone" type="tel" placeholder="ex. +212 6 00 00 00 00" required value={info.phone} onChange={v => setInfo({...info, phone: v})} />
                       <InputField icon={<Mail size={18} />} label="Adresse E-mail" type="email" placeholder="ex. ahmed@example.com" required value={info.email} onChange={v => setInfo({...info, email: v})} />
-                      <InputField icon={<Lock size={18} />} label="Mot de passe" type="password" placeholder="••••••••" required value={signUpPassword} onChange={setSignUpPassword} />
+                      <InputField icon={<Lock size={18} />} label="Mot de passe" type="password" placeholder="6 caractères minimum" required value={signUpPassword} onChange={setSignUpPassword} />
+                      <InputField icon={<Lock size={18} />} label="Confirmer le mot de passe" type="password" placeholder="Retapez votre mot de passe" required value={signUpConfirmPassword} onChange={setSignUpConfirmPassword} />
                       <p style={{ fontSize: "0.78rem", color: "var(--text-muted)", lineHeight: 1.5, margin: 0 }}>
-                        En créant un compte, vous acceptez nos <Link href="/cgu" target="_blank" style={{ color: "var(--primary)", fontWeight: 600, textDecoration: "underline" }}>Conditions Générales d'Utilisation</Link>, y compris le traitement de vos données personnelles.
+                        Un e-mail d'activation vous sera envoyé. La confirmation de votre e-mail est obligatoire avant de pouvoir réserver.
                       </p>
                       <div className="step-actions" style={{ marginTop: "var(--space-2)" }}>
-                        <button type="button" onClick={() => setAuthMode(null)} className="btn-back">
+                        <button type="button" onClick={() => { setAuthMode(null); setError(null); }} className="btn-back">
                           <ChevronLeft size={16} /> Retour
                         </button>
-                        <button type="submit" disabled={!infoComplete || !signUpPassword || isSigningUp} className="btn-primary" style={{ flex: 1, justifyContent: "center", opacity: (!infoComplete || !signUpPassword || isSigningUp) ? 0.5 : 1 }}>
-                          {isSigningUp ? <Loader2 size={16} className="spin-icon" /> : "S'inscrire et Continuer"}
+                        <button
+                          type="submit"
+                          disabled={!infoComplete || !signUpPassword || !signUpConfirmPassword || isSigningUp}
+                          className="btn-primary"
+                          style={{ flex: 1, justifyContent: "center", opacity: (!infoComplete || !signUpPassword || !signUpConfirmPassword || isSigningUp) ? 0.5 : 1 }}
+                        >
+                          {isSigningUp ? <Loader2 size={16} className="spin-icon" /> : "S'inscrire"}
                         </button>
                       </div>
                     </form>
@@ -692,6 +958,11 @@ export default function BookingFlow() {
                         <CalendarDays size={16} /> Semaine
                       </button>
                     </div>
+                  </div>
+
+                  <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.82rem", color: "var(--primary)", background: "rgba(15,81,50,0.07)", padding: "10px 14px", borderRadius: "var(--radius-md)", marginBottom: "var(--space-4)", fontWeight: 500 }}>
+                    <AlertCircle size={16} style={{ flexShrink: 0 }} />
+                    <span>Réservations ouvertes sur <strong>2 semaines</strong> · Limite de <strong>2 réservations par semaine</strong> par joueur.</span>
                   </div>
 
                   <p className="section-label">Sélectionner le Terrain</p>
@@ -867,27 +1138,35 @@ export default function BookingFlow() {
                     })}
                   </div>
                   
-                  <div className="pricing-banner" style={{ background: "rgba(139,28,34,0.06)", padding: "12px", borderRadius: "8px", color: "var(--primary)", fontWeight: "600", marginBottom: "var(--space-5)", display: "flex", alignItems: "center", gap: "8px" }}>
+                  <div className="pricing-banner" style={{ background: "rgba(139,28,34,0.06)", padding: "12px", borderRadius: "8px", color: "var(--primary)", fontWeight: "600", marginBottom: "var(--space-4)", display: "flex", alignItems: "center", gap: "8px" }}>
                     <AlertCircle size={18} />
                     Tarif {isWeekend ? "Week-end" : "Semaine"} : <strong>{totalPrice} MAD</strong> total (Terrain)
                   </div>
 
-                  <p className="section-label">Noms des Autres Joueurs (Optionnel)</p>
-                  <div style={{ display: "grid", gap: "var(--space-3)" }}>
-                    {otherPlayers.map((name, i) => (
-                      <InputField
-                        key={i} icon={<User size={18} />} label={`Joueur ${i + 2}`}
-                        placeholder={`Nom du joueur ${i + 2}`} value={name}
-                        onChange={(v) => { const updated = [...otherPlayers]; updated[i] = v; setOtherPlayers(updated); }}
-                      />
-                    ))}
+                  <div style={{ background: "rgba(15,81,50,0.06)", padding: "10px 14px", borderRadius: "8px", color: "var(--primary)", fontSize: "0.82rem", marginBottom: "var(--space-4)", display: "flex", alignItems: "center", gap: "8px" }}>
+                    <CheckCircle2 size={16} style={{ flexShrink: 0 }} />
+                    <span>Limite : <strong>2 réservations par semaine</strong> · Annulation en ligne jusqu&apos;à <strong>24h avant</strong>.</span>
+                  </div>
+
+                  <p className="section-label">Joueur Responsable de la Réservation</p>
+                  <div style={{ marginBottom: "var(--space-4)" }}>
+                    <InputField
+                      icon={<User size={18} />}
+                      label="Nom et Prénom du joueur"
+                      placeholder="ex. Ahmed Benali"
+                      required
+                      value={info.fullName}
+                      onChange={(v) => setInfo({ ...info, fullName: v })}
+                    />
                   </div>
 
                   <div className="step-actions">
                     <button onClick={handleBack} className="btn-back"><ChevronLeft size={16} /> Retour</button>
                     <button
                       onClick={handleNext}
+                      disabled={!info.fullName.trim()}
                       className="btn-primary"
+                      style={{ opacity: info.fullName.trim() ? 1 : 0.45, pointerEvents: info.fullName.trim() ? "auto" : "none" }}
                     >
                       Vérifier & Confirmer <ChevronRight size={16} />
                     </button>
@@ -914,9 +1193,8 @@ export default function BookingFlow() {
                         ["Terrain",   selectedCourtData?.name ?? ""],
                         ["Date",    format(selectedDate, "EEEE d MMMM yyyy", { locale: fr })],
                         ["Horaire",    `${selectedTime} (session de 1h30)`],
-                        ["Joueurs", `${playerCount} personnes`],
+                        ["Format", `${playerCount} personnes (${playerCount === 2 ? "Simple" : "Double"})`],
                         ["Réservé par",    info.fullName],
-                        ...otherPlayers.filter(n => n.trim()).map((name, i) => [`Joueur ${i + 2}`, name]),
                         ["Téléphone",   info.phone],
                         ["E-mail",   info.email],
                       ].map(([label, value]) => (
@@ -939,7 +1217,7 @@ export default function BookingFlow() {
                     Le paiement s'effectue à l'accueil du club. Vous recevrez une confirmation de votre réservation sur WhatsApp.
                   </p>
                   <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginTop: "calc(-1 * var(--space-4))", marginBottom: "var(--space-5)" }}>
-                    En confirmant, vous acceptez les <Link href="/cgu" target="_blank" style={{ color: "var(--primary)", fontWeight: 600, textDecoration: "underline" }}>Conditions Générales d'Utilisation</Link> (paiement, annulation, données personnelles).
+                    Annulation en ligne possible jusqu&apos;à 24h avant le créneau. En confirmant, vous acceptez les <Link href="/cgu" target="_blank" style={{ color: "var(--primary)", fontWeight: 600, textDecoration: "underline" }}>Conditions Générales d&apos;Utilisation</Link>.
                   </p>
 
                   <div className="step-actions">

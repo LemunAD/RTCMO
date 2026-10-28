@@ -135,20 +135,23 @@ This is what makes double-booking impossible *and* lets cancelled slots be reboo
 | Courts | 3: Terrain 1 *Vue Panoramique* (indoor), 2 *Court Central* (indoor), 3 *Côté Jardin* (outdoor) | `constants.ts` |
 | Slots | 08:00, 09:30, 11:00, 12:30, 14:00, 15:30, 17:00, 18:30, 20:00, 21:30 (90 min; last ends 23:00) | `constants.ts` |
 | Price | **200 MAD weekdays, 240 MAD Sat/Sun, per court** (not per player) | `getBookingPrice()` server-side; **also hard-coded again in `page.tsx`** |
-| Booking window | Rest of current month; in the last 7 days of a month, through the end of next month | `page.tsx` (`maxDate`) — **client only, not enforced by API** |
+| Booking window | Rolling **2 weeks (14 days)** max advance booking | `page.tsx` (`maxDate`) and server-side in `/api/book` (`isBeyondBookingWindow`) |
+| Weekly quota | Max **2 active bookings per week** (Mon–Sun) per player (matched by email/phone) | Server-side in `/api/book` (`MAX_WEEKLY_BOOKINGS = 2`) |
+| Player info | Only the primary booker's full name is required; partner/teammate names removed | `page.tsx` Step 3 & `/api/book` (`other_players: []`) |
+| Email verification | Mandatory email confirmation before accessing booking form or submitting | Supabase Auth + `page.tsx` verification gate + `/api/book` (`email_confirmed_at`) |
 | Payment | At the club; staff mark `paid` | Admin panel |
 | Statuses | `pending` (default) → `paid` or `cancelled` | |
-| Player self-cancel | Only `pending`, and only until **2 h** before start (`CANCEL_CUTOFF_HOURS`), club time `Africa/Casablanca` | `bookingPolicy.ts` |
+| Player self-cancel | Only `pending`, and only until **24 h** before start (`CANCEL_CUTOFF_HOURS`), club time `Africa/Casablanca` | `bookingPolicy.ts` |
 | Admin | Can set any status, edit name/phone/email/player count, delete | |
 | Cancelled slots | Immediately bookable again | availability filter + partial unique index |
 
 ## 7. Features, end to end
 
 ### 7.1 Public booking flow (`/`, `page.tsx`)
-1. **Step 1 – Account.** Two choices: *Membre du Club* (log in with Supabase email+password, with *forgot password*) or *Nouveau Joueur* (**creates a Supabase account** — name, phone, email, password). **There is no true guest checkout** despite the label.
-2. **Step 2 – Court & slot.** Pick court; classic month calendar or weekly grid; booked slots fetched from `/api/availability` and disabled.
-3. **Step 3 – Players.** 2 or 4 players; optional teammate names.
-4. **Step 4 – Review → confirm.** Posts to `/api/book`.
+1. **Step 1 – Account.** Two choices: *Membre du Club* (log in with Supabase email+password, with *forgot password*) or *Nouveau Joueur* (**creates a Supabase account** — name, phone, email, password, and password confirmation). **Email confirmation is strictly required:** new registrants must verify their email via the confirmation link before accessing the booking form; unconfirmed accounts cannot proceed.
+2. **Step 2 – Court & slot.** Pick court; classic month calendar or weekly grid restricted to a rolling 14-day booking window; booked slots fetched from `/api/availability` and disabled. Policy notice warns of the 2-week window and 2 bookings/week limit.
+3. **Step 3 – Players.** 2 or 4 players; primary booker's full name verified. No partner/teammate names required. Policy badge reiterates the 2 bookings/week limit and 24h cancellation rule.
+4. **Step 4 – Review → confirm.** Posts to `/api/book`. Server enforces 14-day window, weekly 2-booking quota, and verified email.
 5. **Success.** Shows the `RTM-XXXXXX` reference. Handles `SLOT_TAKEN` (409) by returning to step 2 and refreshing availability.
 
 > ⚠️ The review step tells users *"Vous recevrez une confirmation de votre réservation sur WhatsApp."* **No WhatsApp (or email) is sent by this application.** This is a false promise in the UI until messaging is built or the text is changed.
@@ -170,10 +173,10 @@ Password login (HMAC cookie, 8 h). Dashboard: today/week/month/total counts and 
 | Method & path | Auth | Purpose | Notes |
 |---|---|---|---|
 | `GET /api/availability?court_id&date` or `&start_date&end_date` | none | Booked slots (cancelled excluded) | Returns `{bookedSlots}` or `{bookedSlotsByDate}` |
-| `POST /api/book` | none | Create booking | Validates court, slot, date format, past *date*, `player_count∈{2,4}`; price computed server-side; `409 SLOT_TAKEN` on unique violation |
+| `POST /api/book` | none | Create booking | Validates court, slot, date format, past *date*, 14-day advance window, weekly quota (max 2/week/player), email confirmation (`email_confirmed_at`), `player_count∈{2,4}`; price computed server-side; `409 SLOT_TAKEN` on unique violation |
 | `POST /api/manage/lookup` | ref+phone | Fetch one booking | Throttled 10/10 min/IP; identical 404 for "not found" and "wrong phone" |
 | `GET /api/manage/mine` | Bearer token | List caller's bookings | Matched on account email (exact, case-insensitive) |
-| `POST /api/manage/cancel` | Bearer token **or** ref+phone | Cancel own booking | Enforces owner, `pending`-only, 2 h cutoff; update guarded by `.eq("status","pending")`; throttled 20/10 min/IP |
+| `POST /api/manage/cancel` | Bearer token **or** ref+phone | Cancel own booking | Enforces owner, `pending`-only, 24 h cutoff; update guarded by `.eq("status","pending")`; throttled 20/10 min/IP |
 | `POST /api/admin/login` | password | Set session cookie | Throttled 5/15 min/IP |
 | `POST /api/admin/logout` | cookie | Clear cookie | |
 | `GET /api/admin/stats` | admin cookie | Dashboard data | Loads **all** bookings into memory |
@@ -213,13 +216,13 @@ No monitoring, error tracking, uptime checks, backups policy, or staging environ
 Ordered roughly by impact. "Verified" = observed in code.
 
 ### Business-critical
-1. **No verification of bookers → slot-hoarding is trivial.** Anyone can create unlimited `pending` bookings with fake names/phones and block every court. There is no OTP, no payment, no per-phone/email cap, and no expiry of `pending` bookings. *Verified.*
+1. **Slot-hoarding mitigation & limits.** Previously unmitigated; now significantly reduced through: (a) mandatory email confirmation before booking access, (b) weekly quota cap of max 2 active bookings per user/email/phone per week, and (c) restricted 14-day advance booking window. Note: SMS/OTP or online card deposits remain recommended for complete fraud prevention. *Partially addressed.*
 2. **No notification is ever sent**, yet the UI promises WhatsApp confirmation (§7.1). Players receive nothing off-screen; losing the reference means using the modal (needs phone) or the drawer. *Verified.*
 3. **Same-day past slots are bookable.** The API rejects past *dates* only, not past *times* on today's date. Whether the client greys them out was not verified. *Verified (API).*
 4. **No way for staff to block courts** (maintenance, tournaments, lessons) or create walk-in/phone bookings. Workaround: create dummy bookings via the public flow. *Verified.*
 
 ### Security
-5. **Account email may be unverified.** Self-service by login trusts `user.email`. If Supabase "Confirm email" is **off**, anyone can sign up as `victim@x.com` and view/cancel that person's pending bookings. *Depends on a Supabase setting that was not checked.*
+5. **Account email verification enforced.** Supabase email confirmation is now strictly enforced: new users must confirm their email before proceeding past Step 1, and `/api/book` checks `email_confirmed_at` server-side, rejecting unverified callers with `403 EMAIL_NOT_CONFIRMED`. *Resolved.*
 6. **Rate limiting is nearly ineffective on Vercel.** The limiter is per-process memory; serverless instances don't share it and reset on cold start. It slows a single warm instance only. `/api/book` has no limiter at all. *Verified.*
 7. **Booking ref + phone is a weak guest credential.** Phones are guessable/known to acquaintances; refs come from `Math.random()` (≈10⁹ space, not cryptographic). Mitigated only by the weak limiter above.
 8. **`supabaseAdmin` silently falls back to the anon key** if the service key is missing — masks misconfiguration and, with RLS closed, produces confusing failures instead of a clear startup error. *Verified.*
@@ -235,7 +238,7 @@ Ordered roughly by impact. "Verified" = observed in code.
 16. **Stats use server time.** `new Date()` on Vercel is UTC, so "today/this week" can be off by up to a day relative to Morocco near midnight. The cancellation rule uses club time; stats and `isPastBookingDate` do not. *Verified.*
 17. **Stats do not scale:** fetches every booking row on each dashboard load. Fine for hundreds, poor for tens of thousands. *Verified.*
 18. **Price is defined twice** (`getBookingPrice` and hard-coded in `page.tsx`); the server wins, so a drift would show one price and charge another. *Verified.*
-19. **Booking window and opening hours are client-side only.** The API will accept any future date. `isSunday()` exists but is unused (club is described as 7/7). *Verified.*
+19. **Booking window enforced server-side.** The rolling 14-day booking window (`MAX_BOOKING_DAYS = 14`) is enforced both on the client datepicker and on the server via `isBeyondBookingWindow()` in `/api/book`. *Resolved.*
 20. **Email as account link is brittle:** a player who changes their account email loses their history; bookings made as "guest-like" with a different email never appear in the drawer.
 21. **Hard delete in admin** destroys history; cancelled status exists but delete bypasses it.
 22. **Guest/"Nouveau Joueur" naming is misleading**; there is no guest path, and the spec of "member of the club" vs. "has a website account" is not the same thing (no club-membership check or member pricing exists).
@@ -341,4 +344,10 @@ Things said earlier in this project's conversation that were wrong or overstated
 ## 16. Change history
 
 Commits on `main` (oldest relevant → newest): admin API routes → `/admin` dashboard → README env docs → authentication, weekly calendar, pricing → forgot-password and `/reset-password` → recovery-link forwarding → flanking images and welcome-card redesign → **`552e89f`**: player self-service (modal, drawer, manage API), server-side pricing, admin login throttle, cancelled-slot availability fix, service-role routing for `/api/book` and `/api/availability`, and the two SQL scripts.
-Uncommitted at time of writing: the `manage/mine` exact-email filter and this document.
+- **Booking policy & authentication enhancements (October 2026)**:
+  - **Cancellation cutoff**: increased from 2 hours to 24 hours (`CANCEL_CUTOFF_HOURS = 24`) in `Africa/Casablanca` club time.
+  - **Weekly booking quota**: enforced server-side limit of maximum 2 active bookings per player per calendar week (Monday–Sunday) matching by email or phone (`MAX_WEEKLY_BOOKINGS = 2`).
+  - **14-day booking window**: restricted booking availability to a rolling 2-week window (14 days), locked both in the frontend calendar and server-side in `/api/book` (`MAX_BOOKING_DAYS = 14`).
+  - **Removed partner name requirements**: simplified Step 3 to only require the primary booking user's full name; teammate name inputs removed and `other_players` stored as `[]`.
+  - **Mandatory email confirmation**: gated registration behind email verification; users cannot proceed to the booking form until their email is confirmed (`email_confirmed_at` validated on server); added "Confirmer le mot de passe" input field to registration form.
+  - **CGU & Admin UX**: Terms of Service (`/cgu`) updated with new cancellation and window rules; admin status change handler improved with network/server error alerts.
