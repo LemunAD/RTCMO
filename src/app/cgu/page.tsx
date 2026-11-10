@@ -393,7 +393,30 @@ export default function CguPage() {
           ))}
         </main>
 
-        <p style={{ textAlign: "center", fontSize: "0.8rem", color: "var(--text-muted)", marginTop: "var(--space-3)" }}>
+        <div style={{ display: "flex", justifyContent: "center", marginTop: "var(--space-4)" }}>
+          <div
+            style={{
+              display: "inline-flex",
+              alignItems: "center",
+              justifyContent: "center",
+              padding: "6px 14px",
+              background: "#ffffff",
+              borderRadius: "8px",
+              border: "1px solid var(--border)",
+              boxShadow: "0 1px 3px rgba(0, 0, 0, 0.05)",
+            }}
+          >
+            <Image
+              src="/logo-cmi-visa-mastercard.png"
+              alt="Moyens de paiement acceptés : CMI, Visa, Mastercard"
+              width={200}
+              height={40}
+              style={{ height: "auto", maxHeight: "36px", width: "auto", objectFit: "contain" }}
+            />
+          </div>
+        </div>
+
+        <p style={{ textAlign: "center", fontSize: "0.8rem", color: "var(--text-muted)", marginTop: "var(--space-2)" }}>
           &copy; {new Date().getFullYear()} Royal Tennis Club de Mohammédia. Tous droits réservés.
         </p>
       </div>
