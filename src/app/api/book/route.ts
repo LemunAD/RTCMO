@@ -1,15 +1,15 @@
 import { supabaseAdmin as supabase } from "@/lib/supabaseAdmin";
-import { format, startOfWeek, endOfWeek } from "date-fns";
+import { randomInt } from "node:crypto";
+import { isValid } from "date-fns";
 import {
   COURT_IDS,
   TIME_SLOTS,
   getBookingPrice,
+  parseBookingDate,
 } from "@/lib/constants";
 import {
-  phonesMatch,
-  isPastClubDate,
+  hasSlotStarted,
   isBeyondBookingWindow,
-  MAX_WEEKLY_BOOKINGS,
   MAX_BOOKING_DAYS,
 } from "@/lib/bookingPolicy";
 import { getUserFromRequest } from "@/lib/userAuth";
@@ -19,32 +19,35 @@ interface BookingPayload {
   booking_date: string;
   time_slot: string;
   player_count: number;
-  total_price: number;
   full_name: string;
   phone: string;
-  email: string;
-  other_players?: string[];
 }
 
 function generateRef(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
   let ref = "RTM-";
   for (let i = 0; i < 6; i++) {
-    ref += chars[Math.floor(Math.random() * chars.length)];
+    ref += chars[randomInt(chars.length)];
   }
   return ref;
 }
 
 export async function POST(request: Request) {
   const user = await getUserFromRequest(request);
-  if (user && !user.email_confirmed_at) {
+  if (!user?.email) {
+    return Response.json({ error: "Veuillez vous connecter avant de réserver." }, { status: 401 });
+  }
+  if (!user.email_confirmed_at) {
     return Response.json(
-      { error: "Veuillez d'abord confirmer votre adresse e-mail avant de réserver." },
+      {
+        error: "Veuillez d'abord confirmer votre adresse e-mail avant de réserver.",
+        code: "EMAIL_NOT_CONFIRMED",
+      },
       { status: 403 }
     );
   }
 
-  let body: BookingPayload;
+  let body: Partial<BookingPayload> | null;
 
   try {
     body = await request.json();
@@ -52,33 +55,22 @@ export async function POST(request: Request) {
     return Response.json({ error: "Invalid JSON body" }, { status: 400 });
   }
 
-  // Basic validation
-  const required: (keyof BookingPayload)[] = [
-    "court_id",
-    "booking_date",
-    "time_slot",
-    "player_count",
-    "full_name",
-    "phone",
-    "email",
-  ];
-  for (const field of required) {
-    if (!body[field] && body[field] !== 0) {
-      return Response.json(
-        { error: `Missing required field: ${field}` },
-        { status: 400 }
-      );
-    }
+  if (!body || typeof body !== "object") {
+    return Response.json({ error: "Invalid booking payload" }, { status: 400 });
   }
 
-  if (!body.full_name.trim()) {
+  if (typeof body.full_name !== "string" || !body.full_name.trim()) {
     return Response.json(
       { error: "Le nom complet est obligatoire." },
       { status: 400 }
     );
   }
 
-  if (![2, 4].includes(body.player_count)) {
+  if (typeof body.phone !== "string" || body.phone.replace(/\D/g, "").length < 9) {
+    return Response.json({ error: "Numéro de téléphone invalide." }, { status: 400 });
+  }
+
+  if (body.player_count !== 2 && body.player_count !== 4) {
     return Response.json(
       { error: "player_count must be 2 or 4" },
       { status: 400 }
@@ -89,17 +81,21 @@ export async function POST(request: Request) {
     return Response.json({ error: "Invalid court_id" }, { status: 400 });
   }
 
-  if (!(TIME_SLOTS as readonly string[]).includes(body.time_slot)) {
+  if (typeof body.time_slot !== "string" || !(TIME_SLOTS as readonly string[]).includes(body.time_slot)) {
     return Response.json({ error: "Invalid time_slot" }, { status: 400 });
   }
 
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(body.booking_date)) {
+  if (
+    typeof body.booking_date !== "string" ||
+    !/^\d{4}-\d{2}-\d{2}$/.test(body.booking_date) ||
+    !isValid(parseBookingDate(body.booking_date))
+  ) {
     return Response.json({ error: "Invalid booking_date format" }, { status: 400 });
   }
 
-  if (isPastClubDate(body.booking_date)) {
+  if (hasSlotStarted(body.booking_date, body.time_slot)) {
     return Response.json(
-      { error: "La date sélectionnée est déjà passée." },
+      { error: "Le créneau sélectionné est déjà passé." },
       { status: 400 }
     );
   }
@@ -114,80 +110,58 @@ export async function POST(request: Request) {
     );
   }
 
-  // Weekly booking limit: maximum 2 bookings per week (Monday to Sunday) per user
-  const [by, bm, bd] = body.booking_date.split("-").map(Number);
-  const targetDate = new Date(by, bm - 1, bd);
-  const weekStart = format(startOfWeek(targetDate, { weekStartsOn: 1 }), "yyyy-MM-dd");
-  const weekEnd = format(endOfWeek(targetDate, { weekStartsOn: 1 }), "yyyy-MM-dd");
+  const booking = {
+    court_id: body.court_id,
+    booking_date: body.booking_date,
+    time_slot: body.time_slot,
+    player_count: body.player_count,
+    total_price: getBookingPrice(body.booking_date),
+    full_name: body.full_name.trim(),
+    phone: body.phone.trim(),
+    email: user.email.trim().toLowerCase(),
+    address: "",
+    other_players: [],
+    status: "pending",
+  };
 
-  const { data: weekBookings, error: weekQueryError } = await supabase
-    .from("bookings")
-    .select("id, email, phone, status, booking_date")
-    .gte("booking_date", weekStart)
-    .lte("booking_date", weekEnd)
-    .or("status.neq.cancelled,status.is.null");
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const { data, error } = await supabase
+      .from("bookings")
+      .insert({ ...booking, booking_ref: generateRef() })
+      .select("id, booking_ref")
+      .single();
 
-  if (weekQueryError) {
-    return Response.json({ error: weekQueryError.message }, { status: 500 });
-  }
+    if (!error) {
+      return Response.json({ success: true, bookingRef: data.booking_ref, bookingId: data.id });
+    }
 
-  const normalizedEmail = body.email.trim().toLowerCase();
-  const userBookingsThisWeek = (weekBookings ?? []).filter((b) => {
-    const emailMatch = (b.email || "").trim().toLowerCase() === normalizedEmail;
-    const phoneMatch = phonesMatch(b.phone, body.phone);
-    return emailMatch || phoneMatch;
-  });
-
-  if (userBookingsThisWeek.length >= MAX_WEEKLY_BOOKINGS) {
-    return Response.json(
-      {
-        error:
-          "Limite atteinte : vous ne pouvez réserver que 2 créneaux par semaine au maximum.",
-        code: "WEEKLY_LIMIT_REACHED",
-      },
-      { status: 400 }
-    );
-  }
-
-  const bookingRef = generateRef();
-
-  const { data, error } = await supabase
-    .from("bookings")
-    .insert({
-      court_id: body.court_id,
-      booking_date: body.booking_date,
-      time_slot: body.time_slot,
-      player_count: body.player_count,
-      total_price: getBookingPrice(body.booking_date),
-      full_name: body.full_name.trim(),
-      phone: body.phone.trim(),
-      email: normalizedEmail,
-      address: "",
-      other_players: [],
-      booking_ref: bookingRef,
-      status: "pending",
-    })
-    .select("id, booking_ref")
-    .single();
-
-  if (error) {
-    // UNIQUE constraint violation → slot already taken
-    if (error.code === "23505") {
+    if (error.code === "PT429") {
       return Response.json(
         {
-          error:
-            "Ce créneau vient d'être réservé par quelqu'un d'autre. Veuillez en choisir un autre.",
+          error: "Limite atteinte : vous ne pouvez réserver que 2 créneaux par semaine au maximum.",
+          code: "WEEKLY_LIMIT_REACHED",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (error.code === "23505" && error.details?.startsWith("Key (booking_ref)=")) {
+      continue;
+    }
+
+    if (error.code === "23505" && error.message.includes('"unique_active_booking"')) {
+      return Response.json(
+        {
+          error: "Ce créneau vient d'être réservé par quelqu'un d'autre. Veuillez en choisir un autre.",
           code: "SLOT_TAKEN",
         },
         { status: 409 }
       );
     }
-    return Response.json({ error: error.message }, { status: 500 });
+
+    console.error("Booking insert failed", error.code);
+    break;
   }
 
-  return Response.json({
-    success: true,
-    bookingRef: data.booking_ref,
-    bookingId: data.id,
-  });
+  return Response.json({ error: "Impossible de créer la réservation." }, { status: 500 });
 }

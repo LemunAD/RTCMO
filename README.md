@@ -22,6 +22,8 @@ You can start editing the page by modifying `app/page.tsx`. The page auto-update
 
 Copy `.env.example` to `.env.local` and fill in your Supabase project's URL/anon key, plus an admin password and session secret for the admin panel (see comments in the file for details).
 
+Apply `supabase_fix_cancelled_slots.sql` in Supabase before deploying the booking API. It installs the weekly booking limit and enforces unique active slots and booking references. If it fails because of duplicate references or active slots, reconcile the affected rows before rerunning it.
+
 ## Admin panel
 
 Reservations can be reviewed and cancelled at `/admin`. It's gated by `ADMIN_PASSWORD` (a single shared password, no per-user accounts) and is not linked from the public site or search-indexed — visit the URL directly.

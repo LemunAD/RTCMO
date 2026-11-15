@@ -4,7 +4,6 @@
 export const CANCEL_CUTOFF_HOURS = 24;
 export const CLUB_TIMEZONE = "Africa/Casablanca";
 export const MAX_BOOKING_DAYS = 14;
-export const MAX_WEEKLY_BOOKINGS = 2;
 
 /**
  * Returns the club's current calendar date (at 00:00:00 local club time),
@@ -19,13 +18,6 @@ export function getClubToday(): Date {
   }).formatToParts(new Date());
   const get = (t: string) => Number(parts.find((p) => p.type === t)?.value);
   return new Date(get("year"), get("month") - 1, get("day"));
-}
-
-export function isPastClubDate(dateStr: string): boolean {
-  const [y, m, d] = dateStr.split("-").map(Number);
-  const target = new Date(y, m - 1, d);
-  const today = getClubToday();
-  return target < today;
 }
 
 export function isBeyondBookingWindow(dateStr: string): boolean {
@@ -83,6 +75,10 @@ function slotMinutes(date: string, time: string): number {
   return Date.UTC(y, m - 1, d, hh, mm) / 60000;
 }
 
+export function hasSlotStarted(date: string, time: string): boolean {
+  return slotMinutes(date, time) <= clubNowMinutes();
+}
+
 export function evaluateCancellation(booking: {
   booking_date: string;
   time_slot: string;
@@ -106,8 +102,12 @@ export function evaluateCancellation(booking: {
   return { cancellable: true, reason: null };
 }
 
-export function toPublicBooking(row: Record<string, any>): PublicBooking {
-  const { cancellable, reason } = evaluateCancellation(row as any);
+type BookingRow = Omit<PublicBooking, "status" | "cancellable" | "cancel_reason"> & {
+  status: PublicBooking["status"] | null;
+};
+
+export function toPublicBooking(row: BookingRow): PublicBooking {
+  const { cancellable, reason } = evaluateCancellation(row);
   return {
     booking_ref: row.booking_ref,
     court_id: row.court_id,
