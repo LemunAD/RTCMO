@@ -66,8 +66,8 @@ function BookingCard({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Annulation impossible.");
       onChanged(data.booking);
-    } catch (e: any) {
-      setErr(e.message || "Annulation impossible.");
+    } catch (e) {
+      setErr((e instanceof Error && e.message) || "Annulation impossible.");
     } finally {
       setCancelling(false);
       setConfirming(false);
@@ -176,14 +176,13 @@ export function ManageBookingModal({ open, onClose }: { open: boolean; onClose: 
   const [error, setError] = useState<string | null>(null);
   const [booking, setBooking] = useState<ManagedBooking | null>(null);
 
-  useEffect(() => {
-    if (!open) {
-      setBooking(null);
-      setError(null);
-      setRef("");
-      setPhone("");
-    }
-  }, [open]);
+  const close = () => {
+    onClose();
+    setBooking(null);
+    setError(null);
+    setRef("");
+    setPhone("");
+  };
 
   const search = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -199,8 +198,8 @@ export function ManageBookingModal({ open, onClose }: { open: boolean; onClose: 
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Réservation introuvable.");
       setBooking(data.booking);
-    } catch (err: any) {
-      setError(err.message || "Réservation introuvable.");
+    } catch (err) {
+      setError((err instanceof Error && err.message) || "Réservation introuvable.");
     } finally {
       setLoading(false);
     }
@@ -216,7 +215,7 @@ export function ManageBookingModal({ open, onClose }: { open: boolean; onClose: 
       {open && (
         <motion.div
           initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-          onClick={onClose}
+          onClick={close}
           style={{
             position: "fixed", inset: 0, zIndex: 200, background: "rgba(10,25,18,0.55)",
             backdropFilter: "blur(4px)", display: "flex", alignItems: "center",
@@ -233,7 +232,7 @@ export function ManageBookingModal({ open, onClose }: { open: boolean; onClose: 
           >
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: 6 }}>
               <h2 style={{ fontSize: "1.3rem", color: "var(--primary)", margin: 0 }}>Gérer ma réservation</h2>
-              <button onClick={onClose} aria-label="Fermer" style={{ padding: 6, cursor: "pointer" }}><X size={20} /></button>
+              <button onClick={close} aria-label="Fermer" style={{ padding: 6, cursor: "pointer" }}><X size={20} /></button>
             </div>
             <p style={{ fontSize: "0.85rem", color: "var(--text-muted)", marginBottom: 16 }}>
               Retrouvez votre réservation avec votre référence et le téléphone utilisé lors de la réservation.
@@ -316,15 +315,17 @@ export function AccountDrawer({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Impossible de charger vos réservations.");
       setBookings(data.bookings);
-    } catch (e: any) {
-      setError(e.message);
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Impossible de charger vos réservations.");
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    if (open && userEmail) load();
+    if (!open || !userEmail) return;
+    const timer = window.setTimeout(() => void load(), 0);
+    return () => window.clearTimeout(timer);
   }, [open, userEmail, load]);
 
   const todayStr = format(new Date(), "yyyy-MM-dd");

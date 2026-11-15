@@ -47,8 +47,8 @@ export default function ResetPasswordPage() {
       if (error) throw error;
       await supabase.auth.signOut();
       setDone(true);
-    } catch (err: any) {
-      setError(err.message || "Impossible de mettre à jour le mot de passe.");
+    } catch (err) {
+      setError((err instanceof Error && err.message) || "Impossible de mettre à jour le mot de passe.");
     } finally {
       setLoading(false);
     }
@@ -90,7 +90,7 @@ export default function ResetPasswordPage() {
               Ce lien est invalide ou a expiré. Veuillez refaire une demande de réinitialisation.
             </p>
             <Link href="/" className="btn-primary" style={{ display: "inline-flex", justifyContent: "center", textDecoration: "none" }}>
-              Retour à l'accueil
+              Retour à l&apos;accueil
             </Link>
           </div>
         ) : (

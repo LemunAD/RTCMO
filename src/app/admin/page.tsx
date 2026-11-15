@@ -57,7 +57,6 @@ interface BookingsResponse {
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const COURT_NAMES: Record<number, string> = Object.fromEntries(COURTS.map(c => [c.id, c.name]));
-const COURT_LABELS: Record<number, string> = Object.fromEntries(COURTS.map(c => [c.id, `${c.name} — ${c.tag}`]));
 const COURT_TYPES: Record<number, string> = Object.fromEntries(COURTS.map(c => [c.id, c.type]));
 
 const STATUS_LABELS: Record<BookingStatus, string> = {
@@ -149,7 +148,10 @@ function DashboardView() {
     } finally { setLoading(false); }
   }, []);
 
-  useEffect(() => { fetchStats(); }, [fetchStats]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => void fetchStats(), 0);
+    return () => window.clearTimeout(timer);
+  }, [fetchStats]);
 
   if (loading) return (
     <div style={{ display: "flex", justifyContent: "center", padding: "var(--space-6)" }}>
@@ -292,7 +294,10 @@ function BookingsView() {
     } finally { setLoading(false); }
   }, [dateFilter, courtFilter, statusFilter, searchTerm, page]);
 
-  useEffect(() => { fetchBookings(); }, [fetchBookings]);
+  useEffect(() => {
+    const timer = window.setTimeout(() => void fetchBookings(), 0);
+    return () => window.clearTimeout(timer);
+  }, [fetchBookings]);
 
   const handleStatusChange = (id: number, newStatus: BookingStatus) => {
     setBookings(prev => prev.map(b => b.id === id ? { ...b, status: newStatus } : b));
@@ -592,10 +597,8 @@ export default function AdminPage() {
   // Check auth on mount by trying a protected endpoint
   useEffect(() => {
     fetch("/api/admin/stats").then(res => {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAuthenticated(res.ok);
     }).catch(() => {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
       setAuthenticated(false);
     });
   }, []);

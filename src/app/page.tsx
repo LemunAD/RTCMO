@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect, useCallback } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
+import { isAuthError, type User as AuthUser } from "@supabase/supabase-js";
 import { supabase } from "@/lib/supabase";
 import {
   Calendar as CalendarIcon,
@@ -38,7 +39,6 @@ import {
   isSameMonth,
   isSameDay,
   addMonths,
-  getDaysInMonth,
   addWeeks,
   addDays
 } from "date-fns";
@@ -287,9 +287,9 @@ export default function BookingFlow() {
         email: data.user?.email || loginEmail.trim(),
       });
       handleNext();
-    } catch (err: any) {
-      const msg = err.message || "";
-      if (msg.toLowerCase().includes("email not confirmed") || (err as any).code === "email_not_confirmed") {
+    } catch (err) {
+      const msg = (err instanceof Error && err.message) || "";
+      if (msg.toLowerCase().includes("email not confirmed") || (isAuthError(err) && err.code === "email_not_confirmed")) {
         setRegisteredEmail(loginEmail.trim());
         setAuthMode("confirm_email");
         setError("Votre adresse e-mail n'a pas encore été confirmée. Veuillez vérifier votre boîte de réception.");
@@ -312,8 +312,8 @@ export default function BookingFlow() {
       });
       if (error) throw error;
       setResetSent(true);
-    } catch (err: any) {
-      setError(err.message || "Impossible d'envoyer l'e-mail de réinitialisation.");
+    } catch (err) {
+      setError((err instanceof Error && err.message) || "Impossible d'envoyer l'e-mail de réinitialisation.");
     } finally {
       setIsSendingReset(false);
     }
@@ -347,7 +347,7 @@ export default function BookingFlow() {
         },
       });
       if (error) {
-        if (error.message?.toLowerCase().includes("already registered") || (error as any).code === "user_already_exists") {
+        if (error.message?.toLowerCase().includes("already registered") || error.code === "user_already_exists") {
           throw new Error("Un compte existe déjà avec cette adresse e-mail. Veuillez vous connecter.");
         }
         throw error;
@@ -363,8 +363,8 @@ export default function BookingFlow() {
       } else {
         handleNext();
       }
-    } catch (err: any) {
-      setError(err.message || "Erreur lors de l'inscription.");
+    } catch (err) {
+      setError((err instanceof Error && err.message) || "Erreur lors de l'inscription.");
     } finally {
       setIsSigningUp(false);
     }
@@ -387,8 +387,8 @@ export default function BookingFlow() {
       });
       if (error) throw error;
       setResendSuccess(true);
-    } catch (err: any) {
-      setError(err.message || "Impossible de renvoyer l'e-mail de confirmation. Veuillez patienter avant de réessayer.");
+    } catch (err) {
+      setError((err instanceof Error && err.message) || "Impossible de renvoyer l'e-mail de confirmation. Veuillez patienter avant de réessayer.");
     } finally {
       setIsResendingConfirm(false);
     }
@@ -433,7 +433,7 @@ export default function BookingFlow() {
 
   // Track the logged-in player so the header can show the Espace Joueur entry.
   useEffect(() => {
-    const apply = (user: { email?: string; email_confirmed_at?: string; user_metadata?: Record<string, any> } | null | undefined) => {
+    const apply = (user: AuthUser | undefined) => {
       if (user?.email) {
         const meta = user.user_metadata || {};
         setSessionUser({ email: user.email, name: meta.full_name || meta.name || "" });
@@ -448,9 +448,9 @@ export default function BookingFlow() {
         setSessionUser(null);
       }
     };
-    supabase.auth.getSession().then(({ data }) => apply(data.session?.user as any));
+    supabase.auth.getSession().then(({ data }) => apply(data.session?.user));
     const { data: sub } = supabase.auth.onAuthStateChange((event, session) => {
-      apply(session?.user as any);
+      apply(session?.user);
       if (event === "SIGNED_IN" && session?.user?.email_confirmed_at && step === 1) {
         const meta = session.user.user_metadata || {};
         setInfo({
@@ -466,13 +466,15 @@ export default function BookingFlow() {
   }, [step]);
 
   useEffect(() => {
-    if (step === 2 && selectedCourt) {
+    if (step !== 2 || !selectedCourt) return;
+    const timer = window.setTimeout(() => {
       if (viewMode === "classic") {
-        fetchDailyAvailability(selectedCourt, selectedDate);
+        void fetchDailyAvailability(selectedCourt, selectedDate);
       } else {
-        fetchWeeklyAvailability(selectedCourt, calendarWeek);
+        void fetchWeeklyAvailability(selectedCourt, calendarWeek);
       }
-    }
+    }, 0);
+    return () => window.clearTimeout(timer);
   }, [step, selectedCourt, selectedDate, calendarWeek, viewMode, fetchDailyAvailability, fetchWeeklyAvailability]);
 
   // If Supabase falls back to the Site URL, forward recovery links to the reset page,
@@ -490,10 +492,10 @@ export default function BookingFlow() {
       hash.includes("type=email_confirmation");
 
     if (isVerifiedLink) {
-      setVerifiedSuccessToast(true);
       supabase.auth.getSession().then(({ data }) => {
         const u = data.session?.user;
-        if (u) {
+        if (u?.email_confirmed_at) {
+          setVerifiedSuccessToast(true);
           const meta = u.user_metadata || {};
           setInfo({
             fullName: meta.full_name || meta.name || "",
@@ -516,7 +518,13 @@ export default function BookingFlow() {
     try {
       const { data: sessionData } = await supabase.auth.getSession();
       const session = sessionData.session;
-      if (session?.user && !session.user.email_confirmed_at) {
+      if (!session) {
+        setError("Veuillez vous reconnecter pour finaliser la réservation.");
+        setStep(1);
+        setAuthMode("member");
+        return;
+      }
+      if (!session.user.email_confirmed_at) {
         setError("Veuillez d'abord confirmer votre adresse e-mail pour finaliser la réservation.");
         setStep(1);
         setAuthMode("confirm_email");
@@ -524,36 +532,47 @@ export default function BookingFlow() {
         return;
       }
 
-      const token = session?.access_token;
       const res = await fetch("/api/book", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
-          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+          Authorization: `Bearer ${session.access_token}`,
         },
         body: JSON.stringify({
           court_id: selectedCourt,
           booking_date: format(selectedDate, "yyyy-MM-dd"),
           time_slot: selectedTime,
           player_count: playerCount,
-          total_price: totalPrice,
           full_name: info.fullName.trim(),
           phone: info.phone.trim(),
-          email: info.email.trim(),
-          other_players: [],
         }),
       });
 
       const data = await res.json();
 
       if (!res.ok) {
+        if (res.status === 401) {
+          setError(data.error);
+          setStep(1);
+          setAuthMode("member");
+          return;
+        }
+        if (data.code === "EMAIL_NOT_CONFIRMED") {
+          setError(data.error);
+          setRegisteredEmail(session.user.email || "");
+          setStep(1);
+          setAuthMode("confirm_email");
+          return;
+        }
         if (data.code === "SLOT_TAKEN") {
           setError("Ce créneau vient d'être réservé par quelqu'un d'autre.");
           setStep(2); 
           if (selectedCourt) {
-            viewMode === 'classic' 
-              ? fetchDailyAvailability(selectedCourt, selectedDate)
-              : fetchWeeklyAvailability(selectedCourt, calendarWeek);
+            if (viewMode === "classic") {
+              await fetchDailyAvailability(selectedCourt, selectedDate);
+            } else {
+              await fetchWeeklyAvailability(selectedCourt, calendarWeek);
+            }
           }
         } else if (data.code === "WEEKLY_LIMIT_REACHED") {
           setError(data.error || "Limite atteinte : vous ne pouvez réserver que 2 créneaux par semaine au maximum.");
@@ -757,7 +776,7 @@ export default function BookingFlow() {
                           <span className="auth-choice-icon"><Lock size={22} /></span>
                           <span className="auth-choice-text">
                             <span className="auth-choice-title">Membre du Club</span>
-                            <span className="auth-choice-desc">J'ai déjà un compte</span>
+                            <span className="auth-choice-desc">J&apos;ai déjà un compte</span>
                           </span>
                           <ArrowRight size={18} className="auth-choice-arrow" />
                         </button>
@@ -792,7 +811,7 @@ export default function BookingFlow() {
                           Confirmez votre adresse e-mail
                         </h2>
                         <p style={{ color: "var(--text-muted)", fontSize: "0.92rem", lineHeight: 1.6, margin: 0 }}>
-                          Un e-mail d'activation vient d'être envoyé à :<br />
+                          Un e-mail d&apos;activation vient d&apos;être envoyé à :<br />
                           <strong style={{ color: "var(--text-main)", fontSize: "1rem" }}>{registeredEmail || info.email}</strong>
                         </p>
                       </div>
@@ -823,7 +842,7 @@ export default function BookingFlow() {
                           className="btn-primary"
                           style={{ justifyContent: "center" }}
                         >
-                          J'ai confirmé mon e-mail / Me connecter <ArrowRight size={16} />
+                          J&apos;ai confirmé mon e-mail / Me connecter <ArrowRight size={16} />
                         </button>
 
                         <button
@@ -841,7 +860,7 @@ export default function BookingFlow() {
                           onClick={() => { setAuthMode(null); setError(null); }}
                           style={{ background: "none", border: "none", color: "var(--text-muted)", fontSize: "0.85rem", cursor: "pointer", textDecoration: "underline", padding: "6px" }}
                         >
-                          Retour à l'accueil
+                          Retour à l&apos;accueil
                         </button>
                       </div>
                     </div>
@@ -876,7 +895,7 @@ export default function BookingFlow() {
                       <p className="section-label" style={{ textAlign: "center" }}>Mot de passe oublié</p>
                       {resetSent ? (
                         <p style={{ textAlign: "center", color: "var(--text-muted)", lineHeight: 1.6 }}>
-                          Si un compte existe pour <strong>{loginEmail}</strong>, un e-mail contenant un lien de réinitialisation vient d'être envoyé. Pensez à vérifier vos courriers indésirables.
+                          Si un compte existe pour <strong>{loginEmail}</strong>, un e-mail contenant un lien de réinitialisation vient d&apos;être envoyé. Pensez à vérifier vos courriers indésirables.
                         </p>
                       ) : (
                         <>
@@ -910,7 +929,7 @@ export default function BookingFlow() {
                       <InputField icon={<Lock size={18} />} label="Mot de passe" type="password" placeholder="6 caractères minimum" required value={signUpPassword} onChange={setSignUpPassword} />
                       <InputField icon={<Lock size={18} />} label="Confirmer le mot de passe" type="password" placeholder="Retapez votre mot de passe" required value={signUpConfirmPassword} onChange={setSignUpConfirmPassword} />
                       <p style={{ fontSize: "0.78rem", color: "var(--text-muted)", lineHeight: 1.5, margin: 0 }}>
-                        Un e-mail d'activation vous sera envoyé. La confirmation de votre e-mail est obligatoire avant de pouvoir réserver.
+                        Un e-mail d&apos;activation vous sera envoyé. La confirmation de votre e-mail est obligatoire avant de pouvoir réserver.
                       </p>
                       <div className="step-actions" style={{ marginTop: "var(--space-2)" }}>
                         <button type="button" onClick={() => { setAuthMode(null); setError(null); }} className="btn-back">
@@ -985,7 +1004,7 @@ export default function BookingFlow() {
 
                   {!selectedCourt ? (
                     <div className="empty-state-hint" style={{ textAlign: "center", padding: "var(--space-4)", color: "var(--text-muted)", background: "rgba(0,0,0,0.03)", borderRadius: "var(--radius-md)" }}>
-                      Veuillez d'abord sélectionner un terrain pour voir les disponibilités.
+                      Veuillez d&apos;abord sélectionner un terrain pour voir les disponibilités.
                     </div>
                   ) : viewMode === "classic" ? (
                     <div className="classic-view-grid">
@@ -1196,7 +1215,7 @@ export default function BookingFlow() {
                         ["Format", `${playerCount} personnes (${playerCount === 2 ? "Simple" : "Double"})`],
                         ["Réservé par",    info.fullName],
                         ["Téléphone",   info.phone],
-                        ["E-mail",   info.email],
+                        ["E-mail",   sessionUser?.email || info.email],
                       ].map(([label, value]) => (
                         <div key={label} className="review-row">
                           <span style={{ color: "var(--text-muted)", fontSize: "0.875rem", flexShrink: 0 }}>{label}</span>
@@ -1214,7 +1233,7 @@ export default function BookingFlow() {
                   </div>
 
                   <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginBottom: "var(--space-5)" }}>
-                    Le paiement s'effectue à l'accueil du club. Vous recevrez une confirmation de votre réservation sur WhatsApp.
+                    Le paiement s&apos;effectue à l&apos;accueil du club. Vous recevrez une confirmation de votre réservation sur WhatsApp.
                   </p>
                   <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginTop: "calc(-1 * var(--space-4))", marginBottom: "var(--space-5)" }}>
                     Annulation en ligne possible jusqu&apos;à 24h avant le créneau. En confirmant, vous acceptez les <Link href="/cgu" target="_blank" style={{ color: "var(--primary)", fontWeight: 600, textDecoration: "underline" }}>Conditions Générales d&apos;Utilisation</Link>.
@@ -1314,7 +1333,7 @@ export default function BookingFlow() {
           <div>
             <p>&copy; {new Date().getFullYear()} Royal Tennis Club de Mohammédia. Tous droits réservés.</p>
             <p style={{ marginTop: "6px" }}>
-              <Link href="/cgu" style={{ textDecoration: "underline" }}>Conditions Générales d'Utilisation</Link>
+              <Link href="/cgu" style={{ textDecoration: "underline" }}>Conditions Générales d&apos;Utilisation</Link>
             </p>
           </div>
         </div>

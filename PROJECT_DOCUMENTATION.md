@@ -38,7 +38,7 @@ An online court-booking site for the **Royal Tennis Club de Mohammédia (RTCMO)*
 
 | Layer | Choice | Notes |
 |---|---|---|
-| Framework | Next.js **16.3.4** (App Router) | `AGENTS.md` warns this version has breaking changes vs. older Next; read `node_modules/next/dist/docs/` before changing framework-level code. |
+| Framework | Next.js **16.4.6** (App Router) | `AGENTS.md` warns this version has breaking changes vs. older Next; read `node_modules/next/dist/docs/` before changing framework-level code. |
 | UI | React **19.2.8**, framer-motion 13, lucide-react 1.x | |
 | Styling | Hand-written CSS in `src/app/globals.css` (~32 KB) + heavy inline `style={{}}` | No Tailwind, no component library. |
 | Dates | date-fns 4 (+ `fr` locale) | |
@@ -120,9 +120,9 @@ The original `CREATE TABLE` was never in this repo. The schema below is **inferr
 **Required index** (applied by the owner via `supabase_fix_cancelled_slots.sql`):
 ```sql
 CREATE UNIQUE INDEX unique_active_booking
-ON bookings (court_id, booking_date, time_slot) WHERE status != 'cancelled';
+ON bookings (court_id, booking_date, time_slot) WHERE status IS DISTINCT FROM 'cancelled';
 ```
-This is what makes double-booking impossible *and* lets cancelled slots be rebooked. The script drops all pre-existing unique constraints on `bookings` — including any on `booking_ref`, if one existed. **Check whether `booking_ref` is still unique** (see §11).
+The index prevents double-booking while allowing cancelled slots to be rebooked. The migration preserves unrelated unique constraints, ensures booking references are unique, and installs the weekly quota trigger.
 
 **Auth users** live in Supabase Auth (`auth.users`), separate from `bookings`. There is no foreign key between them; the link is the **email string**.
 
@@ -136,7 +136,7 @@ This is what makes double-booking impossible *and* lets cancelled slots be reboo
 | Slots | 08:00, 09:30, 11:00, 12:30, 14:00, 15:30, 17:00, 18:30, 20:00, 21:30 (90 min; last ends 23:00) | `constants.ts` |
 | Price | **200 MAD weekdays, 240 MAD Sat/Sun, per court** (not per player) | `getBookingPrice()` server-side; **also hard-coded again in `page.tsx`** |
 | Booking window | Rolling **2 weeks (14 days)** max advance booking | `page.tsx` (`maxDate`) and server-side in `/api/book` (`isBeyondBookingWindow`) |
-| Weekly quota | Max **2 active bookings per week** (Mon–Sun) per player (matched by email/phone) | Server-side in `/api/book` (`MAX_WEEKLY_BOOKINGS = 2`) |
+| Weekly quota | Max **2 active bookings per week** (Mon–Sun) per player (matched by email/phone) | Database trigger installed by `supabase_fix_cancelled_slots.sql` |
 | Player info | Only the primary booker's full name is required; partner/teammate names removed | `page.tsx` Step 3 & `/api/book` (`other_players: []`) |
 | Email verification | Mandatory email confirmation before accessing booking form or submitting | Supabase Auth + `page.tsx` verification gate + `/api/book` (`email_confirmed_at`) |
 | Payment | At the club; staff mark `paid` | Admin panel |
@@ -218,13 +218,13 @@ Ordered roughly by impact. "Verified" = observed in code.
 ### Business-critical
 1. **Slot-hoarding mitigation & limits.** Previously unmitigated; now significantly reduced through: (a) mandatory email confirmation before booking access, (b) weekly quota cap of max 2 active bookings per user/email/phone per week, and (c) restricted 14-day advance booking window. Note: SMS/OTP or online card deposits remain recommended for complete fraud prevention. *Partially addressed.*
 2. **No notification is ever sent**, yet the UI promises WhatsApp confirmation (§7.1). Players receive nothing off-screen; losing the reference means using the modal (needs phone) or the drawer. *Verified.*
-3. **Same-day past slots are bookable.** The API rejects past *dates* only, not past *times* on today's date. Whether the client greys them out was not verified. *Verified (API).*
+3. **Past slots are rejected.** The API checks the slot start against club time, including for bookings on the current date.
 4. **No way for staff to block courts** (maintenance, tournaments, lessons) or create walk-in/phone bookings. Workaround: create dummy bookings via the public flow. *Verified.*
 
 ### Security
-5. **Account email verification enforced.** Supabase email confirmation is now strictly enforced: new users must confirm their email before proceeding past Step 1, and `/api/book` checks `email_confirmed_at` server-side, rejecting unverified callers with `403 EMAIL_NOT_CONFIRMED`. *Resolved.*
+5. **Account email verification enforced.** Supabase email confirmation is now strictly enforced: new users must confirm their email before proceeding past Step 1, and `/api/book` checks `email_confirmed_at` server-side, rejecting requests without a valid session with `401` and unverified accounts with `403 EMAIL_NOT_CONFIRMED`. *Resolved.*
 6. **Rate limiting is nearly ineffective on Vercel.** The limiter is per-process memory; serverless instances don't share it and reset on cold start. It slows a single warm instance only. `/api/book` has no limiter at all. *Verified.*
-7. **Booking ref + phone is a weak guest credential.** Phones are guessable/known to acquaintances; refs come from `Math.random()` (≈10⁹ space, not cryptographic). Mitigated only by the weak limiter above.
+7. **Booking ref + phone is a weak guest credential.** Phones are guessable/known to acquaintances; refs have six cryptographically generated characters. Mitigated only by the weak limiter above.
 8. **`supabaseAdmin` silently falls back to the anon key** if the service key is missing — masks misconfiguration and, with RLS closed, produces confusing failures instead of a clear startup error. *Verified.*
 9. **Admin auth is one shared password**, no per-user accounts, no lockout beyond the weak limiter, no logout-everywhere (stateless tokens can't be revoked before expiry), no audit log of who cancelled/deleted what. *Verified.*
 10. **Admin PATCH is under-validated:** `full_name`, `phone`, `email`, `player_count` accept any type/length. *Verified.*
@@ -233,7 +233,7 @@ Ordered roughly by impact. "Verified" = observed in code.
 13. **RLS lock script status unknown**; if not run, anyone with the public anon key may be able to read/modify `bookings` directly (depends on the original policies, which were never reviewed).
 
 ### Correctness / data
-14. **Ref collisions are mis-reported.** A `23505` from a duplicate `booking_ref` would be shown to the user as "slot already taken". Worse, `supabase_fix_cancelled_slots.sql` dropped *all* unique constraints — if `booking_ref` had one, it is gone, and duplicate refs become possible. *Needs a DB check.*
+14. **Reference uniqueness requires the migration.** Booking reference collisions are retried by the API. Existing duplicates must be reconciled before the unique index can be installed.
 15. **"Revenue" is not revenue.** Stats sum every non-cancelled booking, including `pending` (unpaid). Real collected cash = `paid` only. *Verified.*
 16. **Stats use server time.** `new Date()` on Vercel is UTC, so "today/this week" can be off by up to a day relative to Morocco near midnight. The cancellation rule uses club time; stats and `isPastBookingDate` do not. *Verified.*
 17. **Stats do not scale:** fetches every booking row on each dashboard load. Fine for hundreds, poor for tens of thousands. *Verified.*
@@ -259,9 +259,9 @@ Ordered roughly by impact. "Verified" = observed in code.
 **P0 — before relying on this in production**
 1. **Confirm RLS state** and run `supabase_lock_bookings.sql` after a verified live booking. Review `pg_policies` first.
 2. **Decide email confirmation** in Supabase Auth; turn it **on** if the drawer stays.
-3. **Re-add/verify uniqueness of `booking_ref`** (`CREATE UNIQUE INDEX ... ON bookings(booking_ref)`) and retry ref generation on collision (separate from slot conflicts; use `crypto.randomInt`).
+3. **Apply `supabase_fix_cancelled_slots.sql`** before deploying the booking API. It installs the weekly quota trigger and unique indexes.
 4. **Fix or remove the WhatsApp promise** in the review step. Fastest honest option: change the copy to "Conservez votre référence" until messaging exists.
-5. **Block past times today** server-side (compare slot start to club-time now) and enforce the booking window in `/api/book`.
+5. **Verify same-day availability in the booking UI.** The API rejects slots that have already started.
 6. **Limit abuse:** cap active `pending` bookings per phone/email (e.g. 2), and auto-cancel `pending` that aren't confirmed within N hours (cron/Supabase scheduled function).
 
 **P1 — soon**
