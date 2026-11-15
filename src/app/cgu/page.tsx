@@ -51,13 +51,13 @@ const sections: Section[] = [
     body: (
       <>
         <P>
-          Les présentes Conditions Générales d'Utilisation (« CGU ») régissent l'accès et l'utilisation du site de
+          Les présentes Conditions Générales d&apos;Utilisation (« CGU ») régissent l&apos;accès et l&apos;utilisation du site de
           réservation de terrains de padel du {CLUB.name} (le « Club ») ainsi que la réservation et le paiement
           en ligne de créneaux (les « Services »).
         </P>
         <P>
-          Toute création de compte, réservation ou paiement implique l'acceptation pleine et entière des CGU. Si
-          vous êtes en désaccord avec l'une de leurs dispositions, vous devez vous abstenir d'utiliser les Services.
+          Toute création de compte, réservation ou paiement implique l&apos;acceptation pleine et entière des CGU. Si
+          vous êtes en désaccord avec l&apos;une de leurs dispositions, vous devez vous abstenir d&apos;utiliser les Services.
         </P>
       </>
     ),
@@ -86,7 +86,7 @@ const sections: Section[] = [
       <UL
         items={[
           <><strong>Utilisateur / Client</strong> : toute personne physique majeure qui utilise le site ou effectue une réservation.</>,
-          <><strong>Réservation</strong> : la réservation d'un terrain pour un créneau de 90 minutes à une date donnée.</>,
+          <><strong>Réservation</strong> : la réservation d&apos;un terrain pour un créneau de 90 minutes à une date donnée.</>,
           <><strong>Référence</strong> : identifiant unique de la forme « RTM-XXXXXX » délivré à la confirmation.</>,
           <><strong>Prestataire de paiement</strong> : le Centre Monétique Interbancaire (« CMI »), qui exploite la passerelle de paiement sécurisée.</>,
         ]}
@@ -99,15 +99,15 @@ const sections: Section[] = [
     body: (
       <>
         <P>
-          Pour réserver, l'Utilisateur crée un compte avec son nom, son numéro de téléphone, son adresse e-mail et
-          un mot de passe. Il garantit l'exactitude et l'actualité de ces informations.
+          Pour réserver, l&apos;Utilisateur crée un compte avec son nom, son numéro de téléphone, son adresse e-mail et
+          un mot de passe. Il garantit l&apos;exactitude et l&apos;actualité de ces informations.
         </P>
         <P>
-          L'Utilisateur est seul responsable de la confidentialité de ses identifiants et de toute activité réalisée
-          depuis son compte. Toute suspicion d'utilisation frauduleuse doit être signalée sans délai au Club.
+          L&apos;Utilisateur est seul responsable de la confidentialité de ses identifiants et de toute activité réalisée
+          depuis son compte. Toute suspicion d&apos;utilisation frauduleuse doit être signalée sans délai au Club.
         </P>
         <P>
-          Le Club se réserve le droit de suspendre ou supprimer un compte en cas d'informations fausses, d'abus
+          Le Club se réserve le droit de suspendre ou supprimer un compte en cas d&apos;informations fausses, d&apos;abus
           (réservations fictives, blocage de créneaux), de fraude ou de non-respect des CGU. Les mineurs doivent
           être représentés par leur représentant légal pour toute réservation.
         </P>
@@ -124,12 +124,12 @@ const sections: Section[] = [
             <>Le Club dispose de 3 terrains (deux couverts, un extérieur) ; les créneaux durent 90 minutes, de 08h00 à 23h00.</>,
             <>La réservation porte sur un terrain (et non par joueur) pour 2 ou 4 joueurs.</>,
             <>Afin de garantir un accès équitable aux installations, les réservations sont ouvertes pour les 2 semaines à venir (14 jours maximum) et limitées à deux (2) réservations par semaine et par utilisateur.</>,
-            <>Le créneau est attribué selon le principe « premier arrivé, premier servi » et n'est garanti qu'à la confirmation de la Réservation (et, le cas échéant, du paiement).</>,
-            <>Le Club peut annuler ou déplacer un créneau pour des raisons de force majeure, de sécurité, de maintenance, d'événement sportif ou d'intempéries (terrain extérieur) ; l'Utilisateur est alors remboursé intégralement ou se voit proposer un autre créneau.</>,
+            <>Le créneau est attribué selon le principe « premier arrivé, premier servi » et n&apos;est garanti qu&apos;à la confirmation de la Réservation (et, le cas échéant, du paiement).</>,
+            <>Le Club peut annuler ou déplacer un créneau pour des raisons de force majeure, de sécurité, de maintenance, d&apos;événement sportif ou d&apos;intempéries (terrain extérieur) ; l&apos;Utilisateur est alors remboursé intégralement ou se voit proposer un autre créneau.</>,
           ]}
         />
         <P>
-          Une confirmation s'affiche à l'écran avec la Référence. L'Utilisateur doit la conserver : elle est
+          Une confirmation s&apos;affiche à l&apos;écran avec la Référence. L&apos;Utilisateur doit la conserver : elle est
           nécessaire pour gérer sa réservation.
         </P>
       </>
@@ -157,19 +157,19 @@ const sections: Section[] = [
     body: (
       <>
         <P>
-          Le paiement des Réservations s'effectue en ligne, en dirhams marocains, par carte bancaire (cartes
+          Le paiement des Réservations s&apos;effectue en ligne, en dirhams marocains, par carte bancaire (cartes
           bancaires marocaines et cartes internationales Visa / Mastercard acceptées par le CMI), via la
-          plateforme de paiement sécurisée du CMI. Le paiement à l'accueil du Club peut rester disponible si le
-          Club l'indique expressément lors de la Réservation.
+          plateforme de paiement sécurisée du CMI. Le paiement à l&apos;accueil du Club peut rester disponible si le
+          Club l&apos;indique expressément lors de la Réservation.
         </P>
         <UL
           items={[
             <><strong>Exigibilité</strong> : le prix total est débité au moment de la validation du paiement.</>,
-            <><strong>Sécurité</strong> : la saisie des données bancaires se fait exclusivement sur les pages du CMI, protégées par chiffrement (TLS) et authentification forte 3-D Secure. <strong>Le Club n'a jamais accès au numéro complet de votre carte, à sa date d'expiration ni à son cryptogramme, et ne les conserve pas.</strong></>,
-            <><strong>Confirmation</strong> : la Réservation est confirmée et le statut « payé » attribué uniquement après autorisation du paiement par la banque émettrice. En cas de refus ou d'abandon, le créneau n'est pas garanti et peut être libéré après un délai de mise en attente.</>,
+            <><strong>Sécurité</strong> : la saisie des données bancaires se fait exclusivement sur les pages du CMI, protégées par chiffrement (TLS) et authentification forte 3-D Secure. <strong>Le Club n&apos;a jamais accès au numéro complet de votre carte, à sa date d&apos;expiration ni à son cryptogramme, et ne les conserve pas.</strong></>,
+            <><strong>Confirmation</strong> : la Réservation est confirmée et le statut « payé » attribué uniquement après autorisation du paiement par la banque émettrice. En cas de refus ou d&apos;abandon, le créneau n&apos;est pas garanti et peut être libéré après un délai de mise en attente.</>,
             <><strong>Preuve</strong> : les enregistrements informatiques du Club et du CMI font foi de la transaction, sauf preuve contraire.</>,
-            <><strong>Fraude</strong> : le Club peut annuler une Réservation en cas de suspicion de fraude ou d'utilisation non autorisée d'un moyen de paiement, et transmettre les informations nécessaires aux autorités ou à la banque concernée.</>,
-            <><strong>Incident technique</strong> : en cas de débit sans confirmation de Réservation, l'Utilisateur contacte le Club en indiquant la date, l'heure et le montant ; après vérification, la Réservation est confirmée ou le montant remboursé.</>,
+            <><strong>Fraude</strong> : le Club peut annuler une Réservation en cas de suspicion de fraude ou d&apos;utilisation non autorisée d&apos;un moyen de paiement, et transmettre les informations nécessaires aux autorités ou à la banque concernée.</>,
+            <><strong>Incident technique</strong> : en cas de débit sans confirmation de Réservation, l&apos;Utilisateur contacte le Club en indiquant la date, l&apos;heure et le montant ; après vérification, la Réservation est confirmée ou le montant remboursé.</>,
           ]}
         />
       </>
@@ -182,12 +182,12 @@ const sections: Section[] = [
       <>
         <UL
           items={[
-            <><strong>Annulation par l'Utilisateur</strong> : possible depuis le site (« Gérer ma réservation » ou « Espace Joueur ») jusqu'à <strong>24 heures avant</strong> le début du créneau (heure du Maroc). Passé ce délai, aucune annulation n'est possible et la Réservation reste due.</>,
-            <><strong>Remboursement</strong> : une Réservation payée en ligne et annulée dans les délais est remboursée <strong>intégralement</strong>, sur la carte utilisée pour le paiement, sans frais. Le délai d'affichage du crédit dépend de la banque émettrice et peut atteindre [À COMPLÉTER — ex. 10] jours ouvrés après la demande.</>,
+            <><strong>Annulation par l&apos;Utilisateur</strong> : possible depuis le site (« Gérer ma réservation » ou « Espace Joueur ») jusqu&apos;à <strong>24 heures avant</strong> le début du créneau (heure du Maroc). Passé ce délai, aucune annulation n&apos;est possible et la Réservation reste due.</>,
+            <><strong>Remboursement</strong> : une Réservation payée en ligne et annulée dans les délais est remboursée <strong>intégralement</strong>, sur la carte utilisée pour le paiement, sans frais. Le délai d&apos;affichage du crédit dépend de la banque émettrice et peut atteindre [À COMPLÉTER — ex. 10] jours ouvrés après la demande.</>,
             <><strong>Absence (no-show) ou annulation tardive</strong> : aucun remboursement.</>,
-            <><strong>Annulation par le Club</strong> : remboursement intégral ou proposition d'un autre créneau (voir article 5).</>,
+            <><strong>Annulation par le Club</strong> : remboursement intégral ou proposition d&apos;un autre créneau (voir article 5).</>,
             <><strong>Intempéries</strong> : pour le terrain extérieur, le Club peut proposer un report ou un remboursement si le jeu est impossible.</>,
-            <><strong>Droit de rétractation</strong> : s'agissant d'une prestation de loisirs à date et horaire déterminés, l'Utilisateur ne bénéficie pas du délai de rétractation, conformément à la législation applicable en matière de protection du consommateur (loi n° 31-08). [À VALIDER PAR LE CONSEIL JURIDIQUE]</>,
+            <><strong>Droit de rétractation</strong> : s&apos;agissant d&apos;une prestation de loisirs à date et horaire déterminés, l&apos;Utilisateur ne bénéficie pas du délai de rétractation, conformément à la législation applicable en matière de protection du consommateur (loi n° 31-08). [À VALIDER PAR LE CONSEIL JURIDIQUE]</>,
           ]}
         />
       </>
@@ -201,8 +201,8 @@ const sections: Section[] = [
         items={[
           <>Fournir des informations exactes et utiliser uniquement un moyen de paiement dont il est titulaire ou dont il est autorisé à se servir.</>,
           <>Respecter le règlement intérieur du Club, les horaires, les consignes de sécurité et le matériel (tenue et chaussures adaptées).</>,
-          <>S'abstenir de toute réservation fictive, de toute tentative d'accès non autorisé au site, d'extraction automatisée de données ou de perturbation du service.</>,
-          <>Le Club décline toute responsabilité pour les accidents corporels ou la perte d'objets personnels survenus dans l'enceinte du Club, sauf faute prouvée de sa part. Il est recommandé de disposer d'une assurance individuelle.</>,
+          <>S&apos;abstenir de toute réservation fictive, de toute tentative d&apos;accès non autorisé au site, d&apos;extraction automatisée de données ou de perturbation du service.</>,
+          <>Le Club décline toute responsabilité pour les accidents corporels ou la perte d&apos;objets personnels survenus dans l&apos;enceinte du Club, sauf faute prouvée de sa part. Il est recommandé de disposer d&apos;une assurance individuelle.</>,
         ]}
       />
     ),
@@ -214,9 +214,9 @@ const sections: Section[] = [
       <>
         <P>
           Le Club traite les données personnelles conformément à la loi n° 09-08 relative à la protection des
-          personnes physiques à l'égard du traitement des données à caractère personnel et à ses textes
-          d'application. Le Club est le responsable du traitement. [À COMPLÉTER — numéro de déclaration ou
-          d'autorisation de la Commission Nationale de contrôle de la protection des Données à caractère
+          personnes physiques à l&apos;égard du traitement des données à caractère personnel et à ses textes
+          d&apos;application. Le Club est le responsable du traitement. [À COMPLÉTER — numéro de déclaration ou
+          d&apos;autorisation de la Commission Nationale de contrôle de la protection des Données à caractère
           Personnel (CNDP)]
         </P>
 
@@ -224,20 +224,20 @@ const sections: Section[] = [
         <UL
           items={[
             <><strong>Identité et contact</strong> : nom complet, numéro de téléphone, adresse e-mail.</>,
-            <><strong>Compte</strong> : identifiants de connexion ; le mot de passe est stocké sous forme chiffrée (haché) et n'est jamais lisible par le Club.</>,
+            <><strong>Compte</strong> : identifiants de connexion ; le mot de passe est stocké sous forme chiffrée (haché) et n&apos;est jamais lisible par le Club.</>,
             <><strong>Réservation</strong> : terrain, date, créneau, nombre de joueurs, nom complet du réservataire, référence, statut, montant.</>,
-            <><strong>Paiement</strong> : identifiant et statut de la transaction, montant, date, code de réponse de la banque. <strong>Aucune donnée complète de carte bancaire n'est collectée ni conservée par le Club</strong> ; elles sont traitées exclusivement par le CMI et les établissements bancaires.</>,
-            <><strong>Données techniques</strong> : adresse IP, type d'appareil et de navigateur, journaux de connexion, à des fins de sécurité et de prévention de la fraude.</>,
+            <><strong>Paiement</strong> : identifiant et statut de la transaction, montant, date, code de réponse de la banque. <strong>Aucune donnée complète de carte bancaire n&apos;est collectée ni conservée par le Club</strong> ; elles sont traitées exclusivement par le CMI et les établissements bancaires.</>,
+            <><strong>Données techniques</strong> : adresse IP, type d&apos;appareil et de navigateur, journaux de connexion, à des fins de sécurité et de prévention de la fraude.</>,
           ]}
         />
 
         <h3 style={h3}>10.2 Finalités et bases légales</h3>
         <UL
           items={[
-            <>Création et gestion du compte, gestion des Réservations, des annulations et de l'accueil au Club (exécution du contrat).</>,
+            <>Création et gestion du compte, gestion des Réservations, des annulations et de l&apos;accueil au Club (exécution du contrat).</>,
             <>Encaissement, remboursement, gestion des litiges et lutte contre la fraude (exécution du contrat, intérêt légitime, obligations légales et comptables).</>,
             <>Sécurité du site et prévention des abus (intérêt légitime).</>,
-            <>Communications liées au service (confirmation, rappel, modification). Les communications promotionnelles ne sont envoyées qu'avec le consentement préalable de l'Utilisateur.</>,
+            <>Communications liées au service (confirmation, rappel, modification). Les communications promotionnelles ne sont envoyées qu&apos;avec le consentement préalable de l&apos;Utilisateur.</>,
           ]}
         />
 
@@ -246,46 +246,46 @@ const sections: Section[] = [
         <UL
           items={[
             <><strong>CMI</strong> et les banques concernées, pour le traitement des paiements ;</>,
-            <><strong>Supabase</strong> (hébergement de la base de données et de l'authentification) et <strong>Vercel</strong> (hébergement du site), qui peuvent traiter des données en dehors du Maroc ;</>,
-            <>les autorités judiciaires, administratives ou fiscales lorsque la loi l'exige.</>,
+            <><strong>Supabase</strong> (hébergement de la base de données et de l&apos;authentification) et <strong>Vercel</strong> (hébergement du site), qui peuvent traiter des données en dehors du Maroc ;</>,
+            <>les autorités judiciaires, administratives ou fiscales lorsque la loi l&apos;exige.</>,
           ]}
         />
         <P>
           Les données ne sont ni vendues ni cédées à des tiers à des fins commerciales. Tout transfert vers
-          l'étranger est réalisé dans le respect de la loi n° 09-08 et, le cas échéant, de l'autorisation de la CNDP.
+          l&apos;étranger est réalisé dans le respect de la loi n° 09-08 et, le cas échéant, de l&apos;autorisation de la CNDP.
         </P>
 
         <h3 style={h3}>10.4 Durée de conservation</h3>
         <UL
           items={[
-            <>Données de compte : jusqu'à la suppression du compte, ou après [À COMPLÉTER — ex. 3 ans] d'inactivité.</>,
+            <>Données de compte : jusqu&apos;à la suppression du compte, ou après [À COMPLÉTER — ex. 3 ans] d&apos;inactivité.</>,
             <>Données de réservation et de transaction : [À COMPLÉTER — ex. 10 ans] pour les pièces comptables, conformément aux obligations légales.</>,
             <>Journaux techniques : [À COMPLÉTER — ex. 12 mois] maximum.</>,
           ]}
         />
 
-        <h3 style={h3}>10.5 Droits de l'Utilisateur</h3>
+        <h3 style={h3}>10.5 Droits de l&apos;Utilisateur</h3>
         <P>
-          Conformément à la loi n° 09-08, l'Utilisateur dispose d'un droit d'accès, de rectification, d'opposition
-          pour motif légitime et de suppression de ses données, ainsi que du droit de s'opposer à toute prospection
+          Conformément à la loi n° 09-08, l&apos;Utilisateur dispose d&apos;un droit d&apos;accès, de rectification, d&apos;opposition
+          pour motif légitime et de suppression de ses données, ainsi que du droit de s&apos;opposer à toute prospection
           commerciale. Pour les exercer, il écrit à <a href={`mailto:${CLUB.email}`}>{CLUB.email}</a> en joignant
-          un justificatif d'identité ; une réponse est apportée dans un délai raisonnable. Certaines données
-          (transactions) peuvent devoir être conservées au titre d'obligations légales. L'Utilisateur peut
+          un justificatif d&apos;identité ; une réponse est apportée dans un délai raisonnable. Certaines données
+          (transactions) peuvent devoir être conservées au titre d&apos;obligations légales. L&apos;Utilisateur peut
           également saisir la CNDP.
         </P>
 
         <h3 style={h3}>10.6 Sécurité</h3>
         <P>
           Le Club met en œuvre des mesures techniques et organisationnelles raisonnables : connexions chiffrées
-          (HTTPS), accès restreint aux données, mots de passe hachés, séparation des clés d'accès. Aucune
-          méthode n'étant infaillible, le Club informera les personnes concernées et l'autorité compétente en cas
+          (HTTPS), accès restreint aux données, mots de passe hachés, séparation des clés d&apos;accès. Aucune
+          méthode n&apos;étant infaillible, le Club informera les personnes concernées et l&apos;autorité compétente en cas
           de violation de données, dans les conditions prévues par la loi.
         </P>
 
         <h3 style={h3}>10.7 Cookies</h3>
         <P>
           Le site utilise uniquement le stockage local strictement nécessaire à son fonctionnement (session de
-          connexion). Aucun cookie publicitaire n'est déposé. [À ADAPTER si des outils de mesure d'audience sont ajoutés]
+          connexion). Aucun cookie publicitaire n&apos;est déposé. [À ADAPTER si des outils de mesure d&apos;audience sont ajoutés]
         </P>
       </>
     ),
@@ -295,7 +295,7 @@ const sections: Section[] = [
     title: "11. Propriété intellectuelle",
     body: (
       <P>
-        La marque, le logo, les textes, les images et l'ensemble des éléments du site sont la propriété du Club
+        La marque, le logo, les textes, les images et l&apos;ensemble des éléments du site sont la propriété du Club
         ou de ses partenaires. Toute reproduction ou exploitation sans autorisation écrite préalable est interdite.
       </P>
     ),
@@ -306,13 +306,13 @@ const sections: Section[] = [
     body: (
       <>
         <P>
-          Le Club s'efforce d'assurer l'accès au site 24h/24 mais ne garantit pas l'absence d'interruption
+          Le Club s&apos;efforce d&apos;assurer l&apos;accès au site 24h/24 mais ne garantit pas l&apos;absence d&apos;interruption
           (maintenance, panne, incident chez un prestataire ou un opérateur). Il ne saurait être tenu responsable
-          des dommages indirects, ni des dysfonctionnements liés à l'équipement de l'Utilisateur, à sa connexion
+          des dommages indirects, ni des dysfonctionnements liés à l&apos;équipement de l&apos;Utilisateur, à sa connexion
           ou aux services de sa banque.
         </P>
         <P>
-          Le Club n'est pas responsable des services fournis par le CMI ou les banques, mais assiste l'Utilisateur
+          Le Club n&apos;est pas responsable des services fournis par le CMI ou les banques, mais assiste l&apos;Utilisateur
           dans ses démarches en cas de difficulté de paiement.
         </P>
       </>
@@ -324,7 +324,7 @@ const sections: Section[] = [
     body: (
       <P>
         Toute réclamation peut être adressée à <a href={`mailto:${CLUB.email}`}>{CLUB.email}</a> ou par téléphone
-        au {CLUB.phone}, en indiquant la Référence de la Réservation. Le Club s'engage à répondre dans les meilleurs
+        au {CLUB.phone}, en indiquant la Référence de la Réservation. Le Club s&apos;engage à répondre dans les meilleurs
         délais. À défaut de solution amiable, le litige pourra être porté devant les juridictions compétentes.
       </P>
     ),
@@ -335,7 +335,7 @@ const sections: Section[] = [
     body: (
       <>
         <P>
-          Les CGU sont soumises au droit marocain. En cas de litige, et à défaut d'accord amiable, les tribunaux
+          Les CGU sont soumises au droit marocain. En cas de litige, et à défaut d&apos;accord amiable, les tribunaux
           compétents de Mohammédia sont seuls compétents, sous réserve des
           règles impératives applicables aux consommateurs.
         </P>
@@ -364,7 +364,7 @@ export default function CguPage() {
 
         <main className="glass-panel" style={{ padding: "var(--space-5)", color: "var(--text-main)", lineHeight: 1.7, fontSize: "0.95rem" }}>
           <h1 style={{ fontSize: "1.8rem", fontWeight: 800, color: "var(--primary)", marginBottom: "6px" }}>
-            Conditions Générales d'Utilisation
+            Conditions Générales d&apos;Utilisation
           </h1>
           <p style={{ color: "var(--text-muted)", marginBottom: "var(--space-3)" }}>
             Réservation et paiement en ligne — Dernière mise à jour : {LAST_UPDATE}
