@@ -13,6 +13,13 @@ import {
   MAX_BOOKING_DAYS,
 } from "@/lib/bookingPolicy";
 import { getUserFromRequest } from "@/lib/userAuth";
+import {
+  CHAABI_HOLD_MS,
+  chaabiConfigured,
+  chaabiPaymentsEnabled,
+  createChaabiCheckout,
+  getChaabiConfig,
+} from "@/lib/chaabiPayment";
 
 interface BookingPayload {
   court_id: number;
@@ -124,14 +131,39 @@ export async function POST(request: Request) {
     status: "pending",
   };
 
+  const chaabi = chaabiPaymentsEnabled() ? getChaabiConfig() : null;
+  if (chaabiPaymentsEnabled() && !chaabi) {
+    return Response.json({ error: "Le paiement en ligne est temporairement indisponible." }, { status: 503 });
+  }
+  if (chaabi && booking.email.length > 64) {
+    return Response.json({ error: "Votre adresse e-mail est trop longue pour le paiement en ligne." }, { status: 400 });
+  }
+
+  if (chaabiConfigured()) {
+    const { error } = await supabase.rpc("expire_chaabi_checkout_holds");
+    if (error) {
+      console.error("Checkout hold expiry failed", error.code);
+      return Response.json({ error: "Impossible de vérifier ce créneau." }, { status: 503 });
+    }
+  }
+
+  const checkout = chaabi ? createChaabiCheckout(chaabi, booking) : null;
+  const payment = checkout ? {
+    payment_order_id: checkout.order,
+    payment_expires_at: new Date(Date.now() + CHAABI_HOLD_MS).toISOString(),
+  } : {};
+
   for (let attempt = 0; attempt < 3; attempt++) {
     const { data, error } = await supabase
       .from("bookings")
-      .insert({ ...booking, booking_ref: generateRef() })
+      .insert({ ...booking, ...payment, booking_ref: generateRef() })
       .select("id, booking_ref")
       .single();
 
     if (!error) {
+      if (checkout) {
+        return Response.json({ success: true, checkout: { action: checkout.action, fields: checkout.fields } });
+      }
       return Response.json({ success: true, bookingRef: data.booking_ref, bookingId: data.id });
     }
 
