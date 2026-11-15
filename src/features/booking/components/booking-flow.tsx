@@ -113,7 +113,7 @@ export default function BookingFlow({ onlinePayment }: { onlinePayment: boolean 
         phone: meta.phone || "",
         email: data.user?.email || loginEmail.trim(),
       });
-      handleNext();
+      setStep(2);
     } catch (err) {
       const msg = (err instanceof Error && err.message) || "";
       if (msg.toLowerCase().includes("email not confirmed") || (isAuthError(err) && err.code === "email_not_confirmed")) {
@@ -188,7 +188,7 @@ export default function BookingFlow({ onlinePayment }: { onlinePayment: boolean 
         setResendSuccess(false);
         setAuthMode("confirm_email");
       } else {
-        handleNext();
+        setStep(2);
       }
     } catch (err) {
       setError((err instanceof Error && err.message) || "Erreur lors de l'inscription.");
