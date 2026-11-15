@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 async function readCheckout(orderId: string) {
   const { data, error } = await supabaseAdmin.from("bookings")
-    .select("booking_ref, status, payment_expires_at, payment_transaction_id")
+    .select("booking_ref, status, payment_expires_at, payment_transaction_id, payment_resolution")
     .eq("payment_order_id", orderId)
     .maybeSingle();
   return { data, error, expired: data ? Date.parse(data.payment_expires_at) <= Date.now() : false };
@@ -33,13 +33,18 @@ export default async function PaymentResult({ searchParams }: PageProps<"/paymen
       title = "Vérification indisponible";
       message = "Actualisez cette page dans un instant. Évitez de relancer le paiement pendant la vérification.";
       canRefresh = true;
-    } else if (data?.status === "paid" && data.payment_transaction_id) {
+    } else if (data?.status === "paid" && data.payment_resolution === "captured") {
       title = "Réservation confirmée";
-      message = "Votre paiement a été autorisé. Conservez votre référence de réservation.";
+      message = "Votre paiement a été confirmé. Conservez votre référence de réservation.";
       reference = data.booking_ref;
-    } else if (data?.status === "cancelled" || expired) {
+    } else if (data?.status === "cancelled" || (expired && !data?.payment_transaction_id)) {
       title = "Réservation expirée ou annulée";
       message = "Le créneau n’est plus retenu. Si votre banque affiche une opération, contactez le club avant de payer à nouveau.";
+    } else if (data?.payment_transaction_id) {
+      title = "Paiement autorisé";
+      message = "Votre créneau est retenu pendant que le club vérifie l’encaissement. Ne relancez pas le paiement.";
+      reference = data.booking_ref;
+      canRefresh = true;
     } else if (data) {
       title = "Paiement en attente";
       message = "La banque n’a pas encore confirmé l’autorisation. Actualisez cette page dans un instant.";

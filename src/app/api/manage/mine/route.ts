@@ -1,6 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getUserFromRequest } from "@/lib/userAuth";
-import { PUBLIC_BOOKING_COLUMNS, toPublicBooking } from "@/lib/bookingPolicy";
+import { type BookingRow, publicBookingColumns, toPublicBooking } from "@/lib/bookingPolicy";
 
 // Bookings of the logged-in player (matched on account e-mail).
 export async function GET(request: Request) {
@@ -11,11 +11,12 @@ export async function GET(request: Request) {
 
   const { data, error } = await supabaseAdmin
     .from("bookings")
-    .select(PUBLIC_BOOKING_COLUMNS)
+    .select(publicBookingColumns())
     .ilike("email", user.email!)
     .order("booking_date", { ascending: false })
     .order("time_slot", { ascending: false })
-    .limit(100);
+    .limit(100)
+    .overrideTypes<BookingRow[], { merge: false }>();
 
   if (error) {
     return Response.json({ error: error.message }, { status: 500 });

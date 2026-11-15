@@ -25,6 +25,7 @@ export interface ManagedBooking {
   other_players?: string[] | null;
   cancellable: boolean;
   cancel_reason: string | null;
+  payment_authorized?: boolean;
 }
 
 const STATUS_LABELS = { pending: "En attente", paid: "Payé", cancelled: "Annulé" } as const;
@@ -95,7 +96,7 @@ function BookingCard({
             color, background: color + "1A", border: `1px solid ${color}40`,
           }}
         >
-          {STATUS_LABELS[booking.status]}
+          {booking.payment_authorized ? "Paiement autorisé" : STATUS_LABELS[booking.status]}
         </span>
       </div>
 

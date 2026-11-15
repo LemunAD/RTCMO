@@ -27,7 +27,8 @@ export async function GET() {
   const monthBookings = active.filter(b => b.booking_date >= monthStart);
   const upcomingBookings = active.filter(b => b.booking_date >= today);
 
-  const sum = (arr: typeof bookings) => arr.reduce((s, b) => s + (b.total_price || 0), 0);
+  const sum = (arr: typeof bookings) =>
+    arr.reduce((s, b) => s + (b.status === "paid" ? b.total_price || 0 : 0), 0);
 
   // Court utilization for today
   const courtUtilization: Record<number, number> = {};

@@ -1,7 +1,8 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { getUserFromRequest } from "@/lib/userAuth";
 import {
-  PUBLIC_BOOKING_COLUMNS,
+  type BookingRow,
+  publicBookingColumns,
   clientIp,
   evaluateCancellation,
   phonesMatch,
@@ -33,9 +34,10 @@ export async function POST(request: Request) {
 
   const { data: booking, error } = await supabaseAdmin
     .from("bookings")
-    .select(`id, ${PUBLIC_BOOKING_COLUMNS}`)
+    .select(`id, ${publicBookingColumns()}`)
     .eq("booking_ref", ref)
-    .maybeSingle();
+    .maybeSingle()
+    .overrideTypes<BookingRow & { id: number | string }, { merge: false }>();
 
   const notFound = Response.json(
     { error: "Aucune réservation ne correspond à ces informations." },
@@ -60,11 +62,12 @@ export async function POST(request: Request) {
     .update({ status: "cancelled" })
     .eq("id", booking.id)
     .eq("status", "pending")
-    .select(PUBLIC_BOOKING_COLUMNS)
-    .maybeSingle();
+    .select(publicBookingColumns())
+    .maybeSingle()
+    .overrideTypes<BookingRow, { merge: false }>();
 
   if (updateError) {
-    return Response.json({ error: updateError.message }, { status: 500 });
+    return Response.json({ error: updateError.message }, { status: updateError.code === "PT409" ? 409 : 500 });
   }
   if (!updated) {
     return Response.json(

@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import {
-  PUBLIC_BOOKING_COLUMNS,
+  type BookingRow,
+  publicBookingColumns,
   clientIp,
   phonesMatch,
   rateLimited,
@@ -31,9 +32,10 @@ export async function POST(request: Request) {
 
   const { data, error } = await supabaseAdmin
     .from("bookings")
-    .select(PUBLIC_BOOKING_COLUMNS)
+    .select(publicBookingColumns())
     .eq("booking_ref", ref)
-    .maybeSingle();
+    .maybeSingle()
+    .overrideTypes<BookingRow, { merge: false }>();
 
   // Same message for "not found" and "wrong phone" so refs can't be enumerated.
   if (error || !data || !phonesMatch(data.phone, phone)) {

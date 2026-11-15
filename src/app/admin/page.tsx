@@ -16,6 +16,7 @@ import { COURTS } from "@/lib/constants";
 // ─── Types ───────────────────────────────────────────────────────────────────
 
 type BookingStatus = "pending" | "paid" | "cancelled";
+type PaymentResolution = "captured" | "refunded" | "voided";
 
 interface Booking {
   id: number;
@@ -31,6 +32,9 @@ interface Booking {
   status: BookingStatus;
   created_at: string;
   other_players?: string[];
+  payment_order_id?: string | null;
+  payment_transaction_id?: string | null;
+  payment_resolution?: PaymentResolution | null;
 }
 
 interface Stats {
@@ -52,6 +56,7 @@ interface BookingsResponse {
   page: number;
   pageSize: number;
   totalPages: number;
+  paymentConfigured: boolean;
 }
 
 // ─── Constants ───────────────────────────────────────────────────────────────
@@ -65,26 +70,42 @@ const STATUS_LABELS: Record<BookingStatus, string> = {
 const STATUS_COLORS: Record<BookingStatus, string> = {
   pending: "#F59E0B", paid: "#10B981", cancelled: "#EF4444",
 };
+const PAYMENT_LABELS: Record<PaymentResolution, string> = {
+  captured: "Capture vérifiée",
+  refunded: "Remboursement vérifié",
+  voided: "Autorisation annulée dans le portail",
+};
 
 // ─── Sub-components ──────────────────────────────────────────────────────────
 
-function StatusBadge({ status, bookingId, onStatusChange }: {
-  status: BookingStatus; bookingId: number;
-  onStatusChange: (id: number, s: BookingStatus) => void;
+function StatusBadge({ booking, onStatusChange }: {
+  booking: Booking;
+  onStatusChange: (id: number, s: BookingStatus, resolution?: PaymentResolution) => void;
 }) {
+  const { id, payment_order_id: order, payment_transaction_id: transaction, payment_resolution: resolution } = booking;
+  const status = booking.status ?? "pending";
   const [open, setOpen] = useState(false);
   const [updating, setUpdating] = useState(false);
 
-  const handleChange = async (newStatus: BookingStatus) => {
+  const handleChange = async (newStatus: BookingStatus, paymentResolution?: PaymentResolution) => {
     if (newStatus === status) { setOpen(false); return; }
+    if (paymentResolution && !window.confirm(
+      `Avez-vous vérifié dans Merchant Center : ${PAYMENT_LABELS[paymentResolution]} ?\nCommande : ${order}\nTransaction : ${transaction}\nMontant : ${booking.total_price} MAD`
+    )) return;
+
+    const body = paymentResolution ? {
+      payment_order_id: order,
+      payment_transaction_id: transaction,
+      payment_resolution: paymentResolution,
+    } : { status: newStatus };
     setUpdating(true);
     try {
-      const res = await fetch(`/api/admin/bookings/${bookingId}`, {
+      const res = await fetch(`/api/admin/bookings/${id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: newStatus }),
+        body: JSON.stringify(body),
       });
-      if (res.ok) onStatusChange(bookingId, newStatus);
+      if (res.ok) onStatusChange(id, newStatus, paymentResolution);
       else {
         const data = await res.json().catch(() => ({}));
         alert(`Impossible de changer le statut (${res.status}) : ${data.error ?? "erreur inconnue"}`);
@@ -94,25 +115,43 @@ function StatusBadge({ status, bookingId, onStatusChange }: {
     } finally { setUpdating(false); setOpen(false); }
   };
 
+  const canChange = !order || (status !== "cancelled" && (status === "pending" || transaction));
+  const paymentActions: PaymentResolution[] = status === "pending"
+    ? ["captured", "voided", "refunded"]
+    : ["refunded"];
+  const label = resolution && status === "cancelled" ? PAYMENT_LABELS[resolution]
+    : status === "pending" && transaction ? "Autorisé · à rapprocher"
+    : STATUS_LABELS[status];
   const bg = STATUS_COLORS[status] + "18";
   return (
     <div style={{ position: "relative" }}>
       <button
         onClick={() => setOpen(!open)}
-        disabled={updating}
+        disabled={updating || !canChange}
         className="admin-status-badge"
         style={{ background: bg, color: STATUS_COLORS[status], borderColor: STATUS_COLORS[status] + "40" }}
       >
-        {updating ? <Loader2 size={12} className="spin-icon" /> : STATUS_LABELS[status]}
+        {updating ? <Loader2 size={12} className="spin-icon" /> : label}
       </button>
       {open && (
         <div className="admin-status-dropdown">
-          {(["pending", "paid", "cancelled"] as BookingStatus[]).map(s => (
+          {order && transaction ? paymentActions.map(action => (
+            <button key={action} onClick={() => handleChange(action === "captured" ? "paid" : "cancelled", action)}
+              className="admin-status-option">
+              {PAYMENT_LABELS[action]}
+            </button>
+          )) : (order ? ["cancelled"] as const : ["pending", "paid", "cancelled"] as const).map(s => (
             <button key={s} onClick={() => handleChange(s)} className="admin-status-option"
               style={{ color: STATUS_COLORS[s], fontWeight: s === status ? 700 : 400 }}>
               {STATUS_LABELS[s]}
             </button>
           ))}
+        </div>
+      )}
+      {order && (
+        <div style={{ fontSize: "0.7rem", color: "var(--text-muted)", overflowWrap: "anywhere" }}>
+          <div>Commande Chaabi : {order}</div>
+          {transaction && <div>Transaction : {transaction}</div>}
         </div>
       )}
     </div>
@@ -269,6 +308,7 @@ function BookingsView() {
   const [dateFilter, setDateFilter] = useState("");
   const [courtFilter, setCourtFilter] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
+  const [paymentConfigured, setPaymentConfigured] = useState(false);
   const [searchTerm, setSearchTerm] = useState("");
   const [editingId, setEditingId] = useState<number | null>(null);
   const [editData, setEditData] = useState<Partial<Booking>>({});
@@ -290,6 +330,7 @@ function BookingsView() {
         setBookings(data.bookings);
         setTotal(data.total);
         setTotalPages(data.totalPages);
+        setPaymentConfigured(data.paymentConfigured);
       }
     } finally { setLoading(false); }
   }, [dateFilter, courtFilter, statusFilter, searchTerm, page]);
@@ -299,8 +340,11 @@ function BookingsView() {
     return () => window.clearTimeout(timer);
   }, [fetchBookings]);
 
-  const handleStatusChange = (id: number, newStatus: BookingStatus) => {
-    setBookings(prev => prev.map(b => b.id === id ? { ...b, status: newStatus } : b));
+  const handleStatusChange = (id: number, newStatus: BookingStatus, resolution?: PaymentResolution) => {
+    setBookings(prev => prev.map(b => b.id === id
+      ? { ...b, status: newStatus, payment_resolution: resolution ?? b.payment_resolution }
+      : b));
+    if (resolution && statusFilter === "payment_review") void fetchBookings();
   };
 
   const handleDelete = async (id: number) => {
@@ -359,6 +403,7 @@ function BookingsView() {
             className="admin-filter-input">
             <option value="">Tous les statuts</option>
             <option value="pending">En attente</option>
+            {paymentConfigured && <option value="payment_review">Paiements à rapprocher</option>}
             <option value="paid">Payé</option>
             <option value="cancelled">Annulé</option>
           </select>
@@ -458,7 +503,7 @@ function BookingsView() {
                 </td>
                 <td><span className="admin-badge-price">{b.total_price} MAD</span></td>
                 <td>
-                  <StatusBadge status={b.status ?? "pending"} bookingId={b.id} onStatusChange={handleStatusChange} />
+                  <StatusBadge booking={b} onStatusChange={handleStatusChange} />
                 </td>
                 <td>
                   <div style={{ display: "flex", gap: "4px" }}>

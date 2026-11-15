@@ -1,6 +1,7 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isAdminAuthenticated } from "@/lib/adminAuth";
 import { COURT_IDS } from "@/lib/constants";
+import { chaabiConfigured } from "@/lib/chaabiPayment";
 
 export async function GET(request: Request) {
   if (!(await isAdminAuthenticated())) {
@@ -14,6 +15,9 @@ export async function GET(request: Request) {
   const search = searchParams.get("search")?.trim();
   const page = Math.max(1, Number(searchParams.get("page") || "1"));
   const pageSize = Math.min(100, Math.max(1, Number(searchParams.get("pageSize") || "15")));
+  const paymentConfigured = chaabiConfigured();
+  const bookingColumns = "id, court_id, booking_date, time_slot, player_count, total_price, full_name, phone, email, booking_ref, status, created_at, other_players";
+  const paymentColumns = ", payment_order_id, payment_transaction_id, payment_resolution";
 
   // Build count query
   let countQuery = supabaseAdmin
@@ -23,7 +27,7 @@ export async function GET(request: Request) {
   // Build data query
   let dataQuery = supabaseAdmin
     .from("bookings")
-    .select("id, court_id, booking_date, time_slot, player_count, total_price, full_name, phone, email, booking_ref, status, created_at, other_players")
+    .select(paymentConfigured ? bookingColumns + paymentColumns : bookingColumns)
     .order("booking_date", { ascending: false })
     .order("time_slot", { ascending: true })
     .range((page - 1) * pageSize, page * pageSize - 1);
@@ -48,6 +52,10 @@ export async function GET(request: Request) {
   if (status && ["pending", "paid", "cancelled"].includes(status)) {
     countQuery = countQuery.eq("status", status);
     dataQuery = dataQuery.eq("status", status);
+  }
+  if (status === "payment_review" && paymentConfigured) {
+    countQuery = countQuery.eq("status", "pending").not("payment_transaction_id", "is", null);
+    dataQuery = dataQuery.eq("status", "pending").not("payment_transaction_id", "is", null);
   }
 
   if (search) {
@@ -74,6 +82,7 @@ export async function GET(request: Request) {
     total,
     page,
     pageSize,
+    paymentConfigured,
     totalPages: Math.ceil(total / pageSize),
   });
 }

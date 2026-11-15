@@ -55,7 +55,7 @@ export async function POST(request: Request) {
       console.error("Chaabi authorization write failed", error.code);
       return reply("FAILURE");
     }
-    return reply(data === true ? "ACTION=POSTAUTH" : "FAILURE");
+    return reply(data === "ACTION=POSTAUTH" || data === "APPROVED" ? data : "FAILURE");
   } catch {
     return reply("FAILURE");
   }

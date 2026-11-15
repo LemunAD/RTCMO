@@ -1,5 +1,6 @@
 import { supabaseAdmin } from "@/lib/supabaseAdmin";
 import { isAdminAuthenticated } from "@/lib/adminAuth";
+import { CHAABI_ORDER_PATTERN } from "@/lib/chaabiPayment";
 
 type Ctx = { params: Promise<{ id: string }> };
 
@@ -26,6 +27,35 @@ export async function PATCH(request: Request, ctx: Ctx) {
     body = await request.json();
   } catch {
     return Response.json({ error: "Invalid JSON body" }, { status: 400 });
+  }
+
+  if (!body || typeof body !== "object" || Array.isArray(body)) {
+    return Response.json({ error: "Invalid booking update" }, { status: 400 });
+  }
+
+  if ("payment_resolution" in body) {
+    const { payment_order_id: order, payment_transaction_id: transaction, payment_resolution: resolution } = body;
+    if (
+      typeof order !== "string" || !CHAABI_ORDER_PATTERN.test(order) ||
+      typeof transaction !== "string" || !transaction || transaction.length > 64 ||
+      (resolution !== "captured" && resolution !== "refunded" && resolution !== "voided")
+    ) {
+      return Response.json({ error: "Rapprochement de paiement invalide." }, { status: 400 });
+    }
+    const { data, error } = await supabaseAdmin.rpc("reconcile_chaabi_payment", {
+      booking_id: String(id),
+      order_id: order,
+      transaction_id: transaction,
+      resolution,
+    });
+    if (error) {
+      console.error("Chaabi reconciliation failed", error.code);
+      return Response.json({ error: "Impossible d’enregistrer le rapprochement du paiement." }, { status: 500 });
+    }
+    if (data !== true) {
+      return Response.json({ error: "Le paiement a changé. Actualisez la liste et vérifiez le portail marchand." }, { status: 409 });
+    }
+    return Response.json({ success: true });
   }
 
   // Only allow updating specific fields
