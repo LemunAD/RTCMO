@@ -1,12 +1,11 @@
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { clientIp, rateLimited } from "@/lib/http/rate-limit";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 import {
   type BookingRow,
   publicBookingColumns,
-  clientIp,
   phonesMatch,
-  rateLimited,
   toPublicBooking,
-} from "@/lib/bookingPolicy";
+} from "@/features/booking-management/policy";
 
 // Guest lookup: booking reference + phone number used at booking time.
 export async function POST(request: Request) {

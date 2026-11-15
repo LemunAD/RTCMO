@@ -1,14 +1,13 @@
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { getUserFromRequest } from "@/lib/userAuth";
+import { clientIp, rateLimited } from "@/lib/http/rate-limit";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getUserFromRequest } from "@/lib/auth/player";
 import {
   type BookingRow,
   publicBookingColumns,
-  clientIp,
   evaluateCancellation,
   phonesMatch,
-  rateLimited,
   toPublicBooking,
-} from "@/lib/bookingPolicy";
+} from "@/features/booking-management/policy";
 
 // Player-initiated cancellation. Authorised either by a valid login (booking e-mail
 // matches the account) or by the guest proof (booking ref + phone).

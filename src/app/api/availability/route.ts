@@ -1,6 +1,6 @@
-import { supabaseAdmin as supabase } from "@/lib/supabaseAdmin";
-import { COURT_IDS } from "@/lib/constants";
-import { chaabiConfigured } from "@/lib/chaabiPayment";
+import { supabaseAdmin as supabase } from "@/lib/supabase/admin";
+import { COURT_IDS } from "@/features/booking/constants";
+import { chaabiConfigured } from "@/features/payments/chaabi";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);

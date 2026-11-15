@@ -4,8 +4,8 @@ import {
   chaabiAmountInCents,
   getChaabiConfig,
   parseChaabiCallback,
-} from "@/lib/chaabiPayment";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+} from "@/features/payments/chaabi";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 function reply(message: "FAILURE" | "APPROVED" | "ACTION=POSTAUTH") {
   return new Response(message, { headers: { "Content-Type": "text/plain; charset=utf-8" } });

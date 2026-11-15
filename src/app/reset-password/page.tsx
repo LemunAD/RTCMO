@@ -5,7 +5,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Lock, Loader2, AlertCircle, CheckCircle2 } from "lucide-react";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase/public-client";
 
 const MIN_PASSWORD_LENGTH = 6;
 

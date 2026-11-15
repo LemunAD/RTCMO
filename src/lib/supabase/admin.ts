@@ -1,10 +1,8 @@
+import "server-only";
+
 import { createClient } from "@supabase/supabase-js";
 
-// Server-only client: uses the service role key so admin routes can read/delete
-// bookings regardless of row-level security policies written for the public
-// anon key. Only import this from Route Handlers under src/app/api/admin/**,
-// never from a "use client" component — the service role key must not reach
-// the browser bundle.
+// The service role is used by server routes that manage the RLS-protected bookings table.
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
 

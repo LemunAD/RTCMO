@@ -15,6 +15,7 @@ export const TIME_SLOTS = [
   "15:30", "17:00", "18:30", "20:00", "21:30",
 ] as const;
 
+export const MAX_BOOKING_DAYS = 14;
 export const SLOT_DURATION_MINUTES = 90;
 
 export const DATE_FORMAT = "yyyy-MM-dd";

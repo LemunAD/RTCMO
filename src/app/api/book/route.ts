@@ -1,25 +1,22 @@
-import { supabaseAdmin as supabase } from "@/lib/supabaseAdmin";
+import { supabaseAdmin as supabase } from "@/lib/supabase/admin";
 import { randomInt } from "node:crypto";
 import { isValid } from "date-fns";
 import {
   COURT_IDS,
   TIME_SLOTS,
+  MAX_BOOKING_DAYS,
   getBookingPrice,
   parseBookingDate,
-} from "@/lib/constants";
-import {
-  hasSlotStarted,
-  isBeyondBookingWindow,
-  MAX_BOOKING_DAYS,
-} from "@/lib/bookingPolicy";
-import { getUserFromRequest } from "@/lib/userAuth";
+} from "@/features/booking/constants";
+import { hasSlotStarted, isBeyondBookingWindow } from "@/features/booking/date-policy";
+import { getUserFromRequest } from "@/lib/auth/player";
 import {
   CHAABI_HOLD_MS,
   chaabiConfigured,
   chaabiPaymentsEnabled,
   createChaabiCheckout,
   getChaabiConfig,
-} from "@/lib/chaabiPayment";
+} from "@/features/payments/chaabi";
 
 interface BookingPayload {
   court_id: number;

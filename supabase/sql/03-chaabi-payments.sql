@@ -1,4 +1,4 @@
--- Install after supabase_fix_cancelled_slots.sql and before enabling checkout.
+-- Install after 01-booking-constraints.sql and 02-lock-bookings.sql.
 BEGIN;
 
 ALTER TABLE public.bookings

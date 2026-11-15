@@ -1,3 +1,5 @@
+import "server-only";
+
 import { createHash, randomBytes, timingSafeEqual } from "node:crypto";
 
 export const CHAABI_CURRENCY = "504";

@@ -1,4 +1,6 @@
-import { supabase } from "@/lib/supabase";
+import "server-only";
+
+import { supabase } from "@/lib/supabase/public-client";
 
 /** Resolves the Supabase user from an "Authorization: Bearer <access_token>" header. */
 export async function getUserFromRequest(request: Request) {

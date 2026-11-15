@@ -1,7 +1,7 @@
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
-import { COURT_IDS } from "@/lib/constants";
-import { chaabiConfigured } from "@/lib/chaabiPayment";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import { isAdminAuthenticated } from "@/lib/auth/admin";
+import { COURT_IDS } from "@/features/booking/constants";
+import { chaabiConfigured } from "@/features/payments/chaabi";
 
 export async function GET(request: Request) {
   if (!(await isAdminAuthenticated())) {

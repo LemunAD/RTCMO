@@ -1,60 +1,51 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# RTCMO Padel
 
-## Getting Started
+RTCMO Padel is the French-language court booking site for the Royal Tennis Club de Mohammédia. Players reserve one of three padel courts. Club staff manage the schedule, bookings, and payments.
 
-First, run the development server:
+## How a booking works
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+1. **Sign in.** A player creates an account and verifies their email, or signs in with an existing verified account.
+2. **Choose a court and time.** The calendar shows available 90-minute slots in a daily or weekly view. Players can book up to 14 days ahead and hold up to two active bookings per calendar week, Monday through Sunday.
+3. **Review and confirm.** The player chooses singles or doubles and checks their contact information. The price is per court in either format. It costs **200 MAD on weekdays** and **240 MAD on weekends**.
+4. **Manage the reservation.** Players can find their bookings under **Espace Joueur** or look up a reservation using its reference and the phone number used to book it. Online cancellation is available for unpaid bookings more than 24 hours before play. For paid bookings or payments under review, players contact the club.
+
+## Payments and staff operations
+
+Staff sign in separately at `/admin` to see the court schedule, search reservations, and manage booking statuses. RTCMO supports two payment modes.
+
+- **Pay at the club** is the default. Confirming the booking reserves the slot and gives the player a reference. Staff mark the reservation paid after collecting payment.
+- **Pay online with Chaabi Payment** sends the player to Chaabi’s hosted checkout. RTCMO holds the slot for 15 minutes while waiting for authorization. A verified authorization keeps the slot reserved and requests capture. Staff verify capture in Merchant Center, then record it in RTCMO to confirm payment. If staff confirm a refund or void in Merchant Center, recording it in RTCMO releases the slot.
+
+See the [deployment and payment guide](docs/deployment.md) for sandbox setup and the staff reconciliation steps.
+
+## How the app is built
+
+Next.js serves the pages and booking API. Supabase Auth handles player accounts, and PostgreSQL in Supabase stores bookings. The booking API checks the player’s session and calculates the price. The database prevents two active reservations for the same court and time and enforces the weekly limit.
+
+| If you need to work on… | Start here |
+| --- | --- |
+| A page or API endpoint | [`src/app/`](src/app) |
+| The booking flow, calendar, or pricing | [`src/features/booking/`](src/features/booking) |
+| Player lookup, history, or cancellation | [`src/features/booking-management/`](src/features/booking-management) |
+| The staff dashboard and booking tools | [`src/features/admin/`](src/features/admin) |
+| Chaabi checkout and callback signing | [`src/features/payments/`](src/features/payments), [payment API routes](src/app/api/payments/chaabi) |
+| Shared authentication and Supabase clients | [`src/lib/`](src/lib) |
+| Database setup and SQL scripts | [`supabase/`](supabase) |
+
+## Run locally
+
+1. Use **Node.js 24** and run `npm ci`.
+2. Copy [`.env.example`](.env.example) to `.env.local`. Fill in the development Supabase URL, anon key, service-role key, and admin credentials. Leave `CHAABI_PAYMENTS_ENABLED=false` for pay-at-club development.
+3. Prepare the development database using the [Supabase setup guide](supabase/README.md). The SQL scripts require the existing `bookings` schema. Get that schema from the project owner if you’re starting with an empty database.
+4. Run `npm run dev`. Open [localhost:3000](http://localhost:3000) for the booking site or [localhost:3000/admin](http://localhost:3000/admin) for the staff panel.
+
+## Verify changes locally
+
+```sh
+npm run lint
+npm run typecheck
+npm run build
+npm run test:smoke
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
-
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
-
-## Configuration
-
-Copy `.env.example` to `.env.local` and fill in your Supabase project's URL/anon key, plus an admin password and session secret for the admin panel (see comments in the file for details).
-
-Apply `supabase_fix_cancelled_slots.sql` in Supabase before deploying the booking API. It installs the weekly booking limit and enforces unique active slots and booking references. If it fails because of duplicate references or active slots, reconcile the affected rows before rerunning it.
-
-## Chaabi Payment
-
-1. In the sandbox database, apply `supabase_fix_cancelled_slots.sql`, `supabase_lock_bookings.sql`, and then `supabase_chaabi_payments.sql`. Deploy with `SUPABASE_SERVICE_ROLE_KEY` set so the server can manage the locked bookings table.
-2. Set `CHAABI_GATEWAY_URL`, `CHAABI_CLIENT_ID`, and `CHAABI_STORE_KEY` for the same merchant environment. Set `CHAABI_SITE_URL` to the public HTTPS origin of the deployment. Chaabi Payment must be able to POST to `/api/payments/chaabi/callback` without a deployment login or redirect. Keep the store key server-side.
-3. Set `CHAABI_PAYMENTS_ENABLED=true`. Test approved, declined, retried, and abandoned payments against the sandbox tenant before enabling production credentials. Check that approved transactions reach **POST** in Merchant Center.
-
-Checkout uses CMI's hosted `PreAuth` flow with ver3 signatures. The bank's signed authorization keeps the slot reserved, and the callback returns `ACTION=POSTAUTH` to request capture. The return page shows authorization while capture awaits review. Availability and new bookings release checkout holds after 15 minutes if there was no authorization. A late authorization for an expired or cancelled hold is rejected.
-
-In `/admin`, use **Réservations → Paiements à rapprocher**. Match the order, transaction and amount in Merchant Center. For an order at **POST**, select **Capture vérifiée** to mark it paid. If Merchant Center confirms a void or refund, record the corresponding action on the booking to release the slot. The admin actions record the bank outcome in RTCMO. Initiate refunds and voids in Merchant Center.
-
-If an earlier build of the payment migration ran in the sandbox, reapply this migration with checkout disabled. Previously authorized transactions without recorded reconciliation return to pending review. Verify them in Merchant Center before confirming or releasing their slots.
-
-Leave payment disabled to keep payment at the club. When disabling an active integration, keep the merchant configuration in place until outstanding checkout holds and callbacks are reconciled.
-
-## Admin panel
-
-Reservations can be reviewed and cancelled at `/admin`. It's gated by `ADMIN_PASSWORD` (a single shared password, no per-user accounts) and is not linked from the public site or search-indexed — visit the URL directly.
-
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+The smoke test starts the production build locally and checks key pages, protected API routes, and public assets with placeholder credentials. Use the Chaabi sandbox to verify checkout and capture.

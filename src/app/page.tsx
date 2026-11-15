@@ -1,6 +1,6 @@
 import { connection } from "next/server";
-import BookingFlow from "./BookingFlow";
-import { chaabiPaymentsEnabled } from "@/lib/chaabiPayment";
+import BookingFlow from "@/features/booking/components/booking-flow";
+import { chaabiPaymentsEnabled } from "@/features/payments/chaabi";
 
 export default async function Page() {
   await connection();
