@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CHAABI_ORDER_PATTERN } from "@/lib/chaabiPayment";
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
+import { CHAABI_ORDER_PATTERN } from "@/features/payments/chaabi";
+import { supabaseAdmin } from "@/lib/supabase/admin";
 
 export const metadata: Metadata = {
   title: "Suivi du paiement — RTCMO",

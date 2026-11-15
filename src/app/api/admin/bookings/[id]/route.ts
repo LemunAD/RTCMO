@@ -1,6 +1,6 @@
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { isAdminAuthenticated } from "@/lib/adminAuth";
-import { CHAABI_ORDER_PATTERN } from "@/lib/chaabiPayment";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import { isAdminAuthenticated } from "@/lib/auth/admin";
+import { CHAABI_ORDER_PATTERN } from "@/features/payments/chaabi";
 
 type Ctx = { params: Promise<{ id: string }> };
 

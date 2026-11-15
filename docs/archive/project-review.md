@@ -1,5 +1,7 @@
 # RTCMO Padel Booking — Project Documentation
 
+> Historical project review. For current paths and setup, see the [repository README](../../README.md) and [deployment guide](../deployment.md).
+
 > Written 2026-10-12 against commit `552e89f` (+ one uncommitted fix, see §14).
 > Goal: a complete, honest reference for this project and a blueprint for building similar ones.
 > Where something is **verified from code**, **inferred**, or **unverified**, it says so.

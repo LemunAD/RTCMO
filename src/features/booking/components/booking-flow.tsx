@@ -1,15 +1,12 @@
 "use client";
 
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { motion, AnimatePresence } from "framer-motion";
 import { isAuthError, type User as AuthUser } from "@supabase/supabase-js";
-import { supabase } from "@/lib/supabase";
+import { supabase } from "@/lib/supabase/public-client";
 import {
-  Calendar as CalendarIcon,
-  Clock,
-  MapPin,
   CheckCircle2,
   Users,
   User,
@@ -21,145 +18,25 @@ import {
   AlertCircle,
   Loader2,
   Lock,
-  CalendarDays,
-  LayoutGrid,
   Menu,
   X
 } from "lucide-react";
-import {
-  format,
-  startOfMonth,
-  endOfMonth,
-  startOfWeek,
-  endOfWeek,
-  eachDayOfInterval,
-  startOfDay,
-  isBefore,
-  isAfter,
-  isSameMonth,
-  isSameDay,
-  addMonths,
-  addWeeks,
-  addDays
-} from "date-fns";
+import { format, isWeekend } from "date-fns";
 import { fr } from "date-fns/locale";
-import { COURTS, TIME_SLOTS } from "@/lib/constants";
-import { ManageBookingModal, AccountDrawer } from "./ManagePanels";
-
-// ─── Data ────────────────────────────────────────────────────────────────────
-
-const WEEKDAYS_FR = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
-
-// ─── Types ───────────────────────────────────────────────────────────────────
+import { COURTS, getBookingPrice } from "../constants";
+import { AccountDrawer } from "@/features/booking-management/components/account-drawer";
+import { ManageBookingModal } from "@/features/booking-management/components/manage-booking-modal";
+import { submitHostedCheckout } from "@/features/payments/submit-hosted-checkout";
+import { useBookingSchedule } from "../hooks/use-booking-schedule";
+import { BookingReview } from "./booking-review";
+import { ErrorToast, InputField, StepDots, SummaryBadge } from "./booking-ui";
+import { SchedulePicker } from "./schedule-picker";
 
 interface PlayerInfo {
   fullName: string;
   phone: string;
   email: string;
 }
-
-// ─── Sub-components ──────────────────────────────────────────────────────────
-
-function StepDots({ total, current }: { total: number; current: number }) {
-  return (
-    <div style={{ display: "flex", gap: "8px", alignItems: "center" }}>
-      {Array.from({ length: total }).map((_, i) => (
-        <div
-          key={i}
-          style={{
-            height: "8px",
-            borderRadius: "99px",
-            width: current - 1 === i ? "24px" : "8px",
-            backgroundColor: current - 1 >= i ? "var(--primary)" : "var(--border)",
-            transition: "all 0.35s ease",
-          }}
-        />
-      ))}
-    </div>
-  );
-}
-
-function SummaryBadge({ label, value }: { label: string; value: string }) {
-  return (
-    <div
-      style={{
-        display: "flex",
-        flexDirection: "column",
-        padding: "8px 14px",
-        background: "rgba(15,81,50,0.07)",
-        borderRadius: "var(--radius-md)",
-        fontSize: "0.8rem",
-        gap: "2px",
-      }}
-    >
-      <span style={{ color: "var(--text-muted)", fontSize: "0.7rem", textTransform: "uppercase", letterSpacing: "0.05em" }}>
-        {label}
-      </span>
-      <span style={{ fontWeight: "700", color: "var(--primary)" }}>{value}</span>
-    </div>
-  );
-}
-
-function InputField({
-  icon,
-  label,
-  type = "text",
-  value,
-  onChange,
-  placeholder,
-  required,
-}: {
-  icon: React.ReactNode;
-  label: string;
-  type?: string;
-  value: string;
-  onChange: (v: string) => void;
-  placeholder: string;
-  required?: boolean;
-}) {
-  return (
-    <div style={{ display: "flex", flexDirection: "column", gap: "6px" }}>
-      <label style={{ fontSize: "0.875rem", fontWeight: "600", color: "var(--text-muted)" }}>
-        {label} {required && <span style={{ color: "#e53e3e" }}>*</span>}
-      </label>
-      <div className="input-wrapper">
-        <span style={{ color: "var(--primary)", flexShrink: 0 }}>{icon}</span>
-        <input
-          type={type}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          required={required}
-          style={{
-            border: "none",
-            outline: "none",
-            width: "100%",
-            background: "transparent",
-            fontSize: "0.95rem",
-            color: "var(--text-main)",
-          }}
-        />
-      </div>
-    </div>
-  );
-}
-
-function ErrorToast({ message, onDismiss }: { message: string; onDismiss: () => void }) {
-  return (
-    <motion.div
-      initial={{ opacity: 0, y: -20 }}
-      animate={{ opacity: 1, y: 0 }}
-      exit={{ opacity: 0, y: -20 }}
-      className="error-toast"
-    >
-      <AlertCircle size={18} />
-      <span style={{ flex: 1 }}>{message}</span>
-      <button onClick={onDismiss} style={{ color: "inherit", padding: "4px", fontSize: "1.1rem", lineHeight: 1 }}>×</button>
-    </motion.div>
-  );
-}
-
-// ─── Main Component ───────────────────────────────────────────────────────────
 
 export default function BookingFlow({ onlinePayment }: { onlinePayment: boolean }) {
   const TOTAL_STEPS = 4;
@@ -181,11 +58,8 @@ export default function BookingFlow({ onlinePayment }: { onlinePayment: boolean 
   const [resendSuccess, setResendSuccess] = useState(false);
   const [verifiedSuccessToast, setVerifiedSuccessToast] = useState(false);
 
-  // Step 2 Court & Time state
-  const [viewMode, setViewMode]         = useState<"classic" | "weekly">("classic");
-  const [selectedCourt, setSelectedCourt] = useState<number | null>(null);
-  const [selectedDate, setSelectedDate]   = useState<Date>(() => startOfDay(new Date()));
-  const [selectedTime, setSelectedTime]   = useState<string | null>(null);
+  const schedule = useBookingSchedule(step === 2);
+  const { selectedCourt, selectedDate, selectedTime, setSelectedCourt, setSelectedTime, refreshAvailability } = schedule;
 
   // Step 3 Players info
   const [playerCount, setPlayerCount]     = useState<2 | 4>(4);
@@ -204,55 +78,8 @@ export default function BookingFlow({ onlinePayment }: { onlinePayment: boolean 
   const [menuOpen, setMenuOpen]           = useState(false);
   const [sessionUser, setSessionUser]     = useState<{ email: string; name: string } | null>(null);
 
-  // Availability state
-  const [bookedSlots, setBookedSlots]     = useState<Set<string>>(new Set());
-  const [weeklyBookedSlots, setWeeklyBookedSlots] = useState<Record<string, Set<string>>>({});
-  const [loadingSlots, setLoadingSlots]   = useState(false);
-
-  // Calendar navigation
-  const [calendarMonth, setCalendarMonth] = useState<Date>(new Date());
-  const [calendarWeek, setCalendarWeek]   = useState<Date>(() => startOfWeek(startOfDay(new Date()), { weekStartsOn: 1 }));
-
-  const today = startOfDay(new Date());
-
-  // Available booking window: exactly 2 weeks (14 days) from today
-  const maxDate = useMemo(() => {
-    return addDays(today, 14);
-  }, [today]);
-
-  const calendarDays = useMemo(() => {
-    const monthStart = startOfMonth(calendarMonth);
-    const monthEnd = endOfMonth(calendarMonth);
-    const calendarStart = startOfWeek(monthStart, { weekStartsOn: 1 });
-    const calendarEnd = endOfWeek(monthEnd, { weekStartsOn: 1 });
-    return eachDayOfInterval({ start: calendarStart, end: calendarEnd });
-  }, [calendarMonth]);
-
-  const calendarWeekDays = useMemo(() => {
-    return eachDayOfInterval({ start: calendarWeek, end: endOfWeek(calendarWeek, { weekStartsOn: 1 }) });
-  }, [calendarWeek]);
-
-  const canGoPrevMonth = useMemo(() => {
-    const prevMonth = addMonths(calendarMonth, -1);
-    return !isBefore(endOfMonth(prevMonth), today);
-  }, [calendarMonth, today]);
-
-  const canGoNextMonth = useMemo(() => {
-    return !isAfter(startOfMonth(addMonths(calendarMonth, 1)), maxDate);
-  }, [calendarMonth, maxDate]);
-
-  const canGoPrevWeek = useMemo(() => {
-    const prevWeekEnd = endOfWeek(addWeeks(calendarWeek, -1), { weekStartsOn: 1 });
-    return !isBefore(prevWeekEnd, today);
-  }, [calendarWeek, today]);
-
-  const canGoNextWeek = useMemo(() => {
-    return !isAfter(startOfWeek(addWeeks(calendarWeek, 1), { weekStartsOn: 1 }), maxDate);
-  }, [calendarWeek, maxDate]);
-
   // Pricing based on selected date
-  const isWeekend = selectedDate.getDay() === 0 || selectedDate.getDay() === 6;
-  const totalPrice = isWeekend ? 240 : 200;
+  const totalPrice = getBookingPrice(format(selectedDate, "yyyy-MM-dd"));
   const selectedCourtData = COURTS.find((c) => c.id === selectedCourt);
 
   const infoComplete = info.fullName.trim() && info.phone.trim() && info.email.trim();
@@ -394,43 +221,6 @@ export default function BookingFlow({ onlinePayment }: { onlinePayment: boolean 
     }
   };
 
-  const fetchDailyAvailability = useCallback(async (courtId: number, date: Date) => {
-    setLoadingSlots(true);
-    try {
-      const dateStr = format(date, "yyyy-MM-dd");
-      const res = await fetch(`/api/availability?court_id=${courtId}&date=${dateStr}`);
-      const data = await res.json();
-      if (res.ok) {
-        setBookedSlots(new Set(data.bookedSlots));
-      }
-    } catch {
-      setBookedSlots(new Set());
-    } finally {
-      setLoadingSlots(false);
-    }
-  }, []);
-
-  const fetchWeeklyAvailability = useCallback(async (courtId: number, weekStartDt: Date) => {
-    setLoadingSlots(true);
-    try {
-      const startStr = format(weekStartDt, "yyyy-MM-dd");
-      const endStr = format(endOfWeek(weekStartDt, { weekStartsOn: 1 }), "yyyy-MM-dd");
-      const res = await fetch(`/api/availability?court_id=${courtId}&start_date=${startStr}&end_date=${endStr}`);
-      const data = await res.json();
-      if (res.ok) {
-        const slotsObj: Record<string, Set<string>> = {};
-        for (const [date, slots] of Object.entries(data.bookedSlotsByDate as Record<string, string[]>)) {
-          slotsObj[date] = new Set(slots);
-        }
-        setWeeklyBookedSlots(slotsObj);
-      }
-    } catch {
-      setWeeklyBookedSlots({});
-    } finally {
-      setLoadingSlots(false);
-    }
-  }, []);
-
   // Track the logged-in player so the header can show the Espace Joueur entry.
   useEffect(() => {
     const apply = (user: AuthUser | undefined) => {
@@ -464,18 +254,6 @@ export default function BookingFlow({ onlinePayment }: { onlinePayment: boolean 
     });
     return () => sub.subscription.unsubscribe();
   }, [step]);
-
-  useEffect(() => {
-    if (step !== 2 || !selectedCourt) return;
-    const timer = window.setTimeout(() => {
-      if (viewMode === "classic") {
-        void fetchDailyAvailability(selectedCourt, selectedDate);
-      } else {
-        void fetchWeeklyAvailability(selectedCourt, calendarWeek);
-      }
-    }, 0);
-    return () => window.clearTimeout(timer);
-  }, [step, selectedCourt, selectedDate, calendarWeek, viewMode, fetchDailyAvailability, fetchWeeklyAvailability]);
 
   // If Supabase falls back to the Site URL, forward recovery links to the reset page,
   // or handle email verification redirects.
@@ -567,13 +345,7 @@ export default function BookingFlow({ onlinePayment }: { onlinePayment: boolean 
         if (data.code === "SLOT_TAKEN") {
           setError("Ce créneau vient d'être réservé par quelqu'un d'autre.");
           setStep(2);
-          if (selectedCourt) {
-            if (viewMode === "classic") {
-              await fetchDailyAvailability(selectedCourt, selectedDate);
-            } else {
-              await fetchWeeklyAvailability(selectedCourt, calendarWeek);
-            }
-          }
+          await refreshAvailability();
         } else if (data.code === "WEEKLY_LIMIT_REACHED") {
           setError(data.error || "Limite atteinte : vous ne pouvez réserver que 2 créneaux par semaine au maximum.");
           setStep(2);
@@ -587,22 +359,7 @@ export default function BookingFlow({ onlinePayment }: { onlinePayment: boolean 
       }
 
       if (data.checkout) {
-        const checkout: { action: string; fields: Record<string, string> } = data.checkout;
-        const form = document.createElement("form");
-        form.method = "POST";
-        form.action = checkout.action;
-        form.acceptCharset = "UTF-8";
-        form.hidden = true;
-        for (const [name, value] of Object.entries(checkout.fields)) {
-          const field = document.createElement("input");
-          field.type = "hidden";
-          field.name = name;
-          field.value = value;
-          form.append(field);
-        }
-        document.body.append(form);
-        form.submit();
-        form.remove();
+        submitHostedCheckout(data.checkout);
         return;
       }
 
@@ -984,168 +741,7 @@ export default function BookingFlow({ onlinePayment }: { onlinePayment: boolean 
               {/* ━━━ STEP 2: Court & Date/Time ━━━ */}
               {step === 2 && (
                 <motion.div key="step2" {...slideProps}>
-                  <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "var(--space-4)" }}>
-                    <h1 className="step-title" style={{ margin: 0 }}>
-                      <CalendarIcon size={28} style={{ color: "var(--primary)" }} />
-                      Créneau & Terrain
-                    </h1>
-                    <div className="view-toggle">
-                      <button className={`view-toggle-btn ${viewMode === 'classic' ? 'active' : ''}`} onClick={() => { setViewMode("classic"); setSelectedTime(null); }}>
-                        <LayoutGrid size={16} /> Classique
-                      </button>
-                      <button className={`view-toggle-btn ${viewMode === 'weekly' ? 'active' : ''}`} onClick={() => { setViewMode("weekly"); setSelectedTime(null); }}>
-                        <CalendarDays size={16} /> Semaine
-                      </button>
-                    </div>
-                  </div>
-
-                  <div style={{ display: "flex", alignItems: "center", gap: "8px", fontSize: "0.82rem", color: "var(--primary)", background: "rgba(15,81,50,0.07)", padding: "10px 14px", borderRadius: "var(--radius-md)", marginBottom: "var(--space-4)", fontWeight: 500 }}>
-                    <AlertCircle size={16} style={{ flexShrink: 0 }} />
-                    <span>Réservations ouvertes sur <strong>2 semaines</strong> · Limite de <strong>2 réservations par semaine</strong> par joueur.</span>
-                  </div>
-
-                  <p className="section-label">Sélectionner le Terrain</p>
-                  <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(200px, 1fr))", gap: "var(--space-2)", marginBottom: "var(--space-5)" }}>
-                    {COURTS.map((court) => {
-                      const active = selectedCourt === court.id;
-                      return (
-                        <button key={court.id} onClick={() => { setSelectedCourt(court.id); setSelectedTime(null); }} className={`court-card ${active ? "active" : ""}`}>
-                          <div>
-                            <div style={{ fontWeight: 700, fontSize: "1rem" }}>{court.name}</div>
-                            <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", display: "flex", alignItems: "center", gap: "4px", marginTop: "2px" }}>
-                              <MapPin size={12} /> {court.tag}
-                            </div>
-                          </div>
-                          <div className={`radio-dot ${active ? "active" : ""}`} />
-                        </button>
-                      );
-                    })}
-                  </div>
-
-                  {!selectedCourt ? (
-                    <div className="empty-state-hint" style={{ textAlign: "center", padding: "var(--space-4)", color: "var(--text-muted)", background: "rgba(0,0,0,0.03)", borderRadius: "var(--radius-md)" }}>
-                      Veuillez d&apos;abord sélectionner un terrain pour voir les disponibilités.
-                    </div>
-                  ) : viewMode === "classic" ? (
-                    <div className="classic-view-grid">
-                      <div className="calendar-container">
-                        <div className="calendar-month-header">
-                          <button className="calendar-nav-btn" onClick={() => setCalendarMonth(m => addMonths(m, -1))} disabled={!canGoPrevMonth}><ChevronLeft size={18} /></button>
-                          <span className="calendar-month-title">{format(calendarMonth, "MMMM yyyy", { locale: fr })}</span>
-                          <button className="calendar-nav-btn" onClick={() => setCalendarMonth(m => addMonths(m, 1))} disabled={!canGoNextMonth}><ChevronRight size={18} /></button>
-                        </div>
-                        <div className="calendar-header-row">
-                          {WEEKDAYS_FR.map(day => <div key={day} className="calendar-weekday">{day}</div>)}
-                        </div>
-                        <div className="calendar-grid">
-                          {calendarDays.map((date, i) => {
-                            const isPast = isBefore(date, today);
-                            const isTooFar = isAfter(date, maxDate);
-                            const isOutsideMonth = !isSameMonth(date, calendarMonth);
-                            const isDisabled = isPast || isTooFar || isOutsideMonth;
-                            const active = !isDisabled && isSameDay(selectedDate, date);
-                            const isTodayDate = isSameDay(date, today);
-                            return (
-                              <button
-                                key={i}
-                                onClick={() => { if(!isDisabled){ setSelectedDate(date); setSelectedTime(null); } }}
-                                disabled={isDisabled}
-                                className={`calendar-cell ${active ? "active" : ""} ${isDisabled ? "disabled" : ""} ${isTodayDate ? "today" : ""} ${isOutsideMonth ? "outside" : ""}`}
-                              >
-                                <span className="cal-day-num">{format(date, "d")}</span>
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-
-                      <div className="time-slots-container" style={{ marginTop: "var(--space-4)" }}>
-                        <p className="section-label">Créneaux ({format(selectedDate, "dd MMM", { locale: fr })})
-                          {loadingSlots && <Loader2 size={14} className="spin-icon" style={{ marginLeft: "8px", display: "inline-block" }} />}
-                        </p>
-                        <div className="time-grid">
-                          {TIME_SLOTS.map((time) => {
-                            const taken = bookedSlots.has(time);
-                            const active = selectedTime === time;
-                            return (
-                              <button
-                                key={time}
-                                onClick={() => { if (!taken) setSelectedTime(time); }}
-                                disabled={taken || loadingSlots}
-                                className={`time-chip ${active ? "active" : ""} ${taken ? "taken" : ""}`}
-                              >
-                                <Clock size={14} /> <span>{time}</span>
-                                {taken && <span className="taken-label">Réservé</span>}
-                              </button>
-                            );
-                          })}
-                        </div>
-                      </div>
-                    </div>
-                  ) : (
-                    <div className="weekly-view-container" style={{ marginTop: "var(--space-4)" }}>
-                      <div className="calendar-month-header" style={{ marginBottom: "var(--space-3)" }}>
-                        <button className="calendar-nav-btn" onClick={() => setCalendarWeek(w => addWeeks(w, -1))} disabled={!canGoPrevWeek}><ChevronLeft size={18} /></button>
-                        <span className="calendar-month-title">Semaine du {format(calendarWeek, "d MMMM", { locale: fr })}</span>
-                        <button className="calendar-nav-btn" onClick={() => setCalendarWeek(w => addWeeks(w, 1))} disabled={!canGoNextWeek}><ChevronRight size={18} /></button>
-                      </div>
-
-                      {loadingSlots && <div style={{ textAlign: "center", padding: "10px" }}><Loader2 size={24} className="spin-icon" style={{ color: "var(--primary)" }} /></div>}
-
-                      <div className={`weekly-grid ${loadingSlots ? 'loading' : ''}`}>
-                        <div className="weekly-header-row">
-                          <div className="weekly-time-col"></div>
-                          {calendarWeekDays.map(date => (
-                            <div key={date.toISOString()} className={`weekly-day-header ${isSameDay(date, today) ? 'today' : ''}`}>
-                              <span className="wd-short">{format(date, "EEE", { locale: fr })}</span>
-                              <span className="wd-num">{format(date, "dd/MM")}</span>
-                            </div>
-                          ))}
-                        </div>
-                        {TIME_SLOTS.map(time => (
-                          <div key={time} className="weekly-row">
-                            <div className="weekly-time-col">{time}</div>
-                            {calendarWeekDays.map(date => {
-                              const dateStr = format(date, "yyyy-MM-dd");
-                              const isPast = isBefore(date, today) || (isSameDay(date, today) && time < format(new Date(), "HH:mm"));
-                              const isTooFar = isAfter(date, maxDate);
-                              const isDisabled = isPast || isTooFar;
-                              const taken = weeklyBookedSlots[dateStr]?.has(time);
-                              const active = isSameDay(selectedDate, date) && selectedTime === time;
-
-                              return (
-                                <button
-                                  key={dateStr}
-                                  onClick={() => {
-                                    if(!isDisabled && !taken) {
-                                      setSelectedDate(date);
-                                      setSelectedTime(time);
-                                    }
-                                  }}
-                                  disabled={isDisabled || taken}
-                                  className={`weekly-cell ${isDisabled ? 'disabled' : ''} ${taken ? 'taken' : ''} ${active ? 'active' : ''}`}
-                                >
-                                  {taken ? <span className="taken-x">Réservé</span> : active ? <CheckCircle2 size={16} /> : "Libre"}
-                                </button>
-                              );
-                            })}
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  <div className="step-actions">
-                    <button onClick={handleBack} className="btn-back"><ChevronLeft size={16} /> Retour</button>
-                    <button
-                      onClick={handleNext}
-                      disabled={!selectedTime}
-                      className="btn-primary"
-                      style={{ opacity: selectedTime ? 1 : 0.45, pointerEvents: selectedTime ? "auto" : "none", display: "flex", gap: "6px" }}
-                    >
-                      Détails Match <ChevronRight size={16} />
-                    </button>
-                  </div>
+                  <SchedulePicker schedule={schedule} handleBack={handleBack} handleNext={handleNext} />
                 </motion.div>
               )}
 
@@ -1179,7 +775,7 @@ export default function BookingFlow({ onlinePayment }: { onlinePayment: boolean 
 
                   <div className="pricing-banner" style={{ background: "rgba(139,28,34,0.06)", padding: "12px", borderRadius: "8px", color: "var(--primary)", fontWeight: "600", marginBottom: "var(--space-4)", display: "flex", alignItems: "center", gap: "8px" }}>
                     <AlertCircle size={18} />
-                    Tarif {isWeekend ? "Week-end" : "Semaine"} : <strong>{totalPrice} MAD</strong> total (Terrain)
+                    Tarif {isWeekend(selectedDate) ? "Week-end" : "Semaine"} : <strong>{totalPrice} MAD</strong> total (Terrain)
                   </div>
 
                   <div style={{ background: "rgba(15,81,50,0.06)", padding: "10px 14px", borderRadius: "8px", color: "var(--primary)", fontSize: "0.82rem", marginBottom: "var(--space-4)", display: "flex", alignItems: "center", gap: "8px" }}>
@@ -1216,69 +812,18 @@ export default function BookingFlow({ onlinePayment }: { onlinePayment: boolean 
               {/* ━━━ STEP 4: Review + Confirm ━━━ */}
               {step === 4 && (
                 <motion.div key="step4" {...slideProps}>
-                  <h2 className="step-title" style={{ fontSize: "1.5rem" }}>
-                    <CheckCircle2 size={24} style={{ color: "var(--primary)" }} />
-                    Récapitulatif
-                  </h2>
-
-                  <div className="review-card">
-                    <div className="review-card-header">
-                      <span style={{ fontWeight: 700 }}>RTCMO — Réservation de Terrain</span>
-                      <span style={{ fontSize: "0.85rem", opacity: 0.85 }}>Padel</span>
-                    </div>
-
-                    <div style={{ padding: "var(--space-4)", display: "grid", gap: "var(--space-3)" }}>
-                      {[
-                        ["Terrain",   selectedCourtData?.name ?? ""],
-                        ["Date",    format(selectedDate, "EEEE d MMMM yyyy", { locale: fr })],
-                        ["Horaire",    `${selectedTime} (session de 1h30)`],
-                        ["Format", `${playerCount} personnes (${playerCount === 2 ? "Simple" : "Double"})`],
-                        ["Réservé par",    info.fullName],
-                        ["Téléphone",   info.phone],
-                        ["E-mail",   sessionUser?.email || info.email],
-                      ].map(([label, value]) => (
-                        <div key={label} className="review-row">
-                          <span style={{ color: "var(--text-muted)", fontSize: "0.875rem", flexShrink: 0 }}>{label}</span>
-                          <span style={{ fontWeight: 600, textAlign: "right", fontSize: "0.9rem" }}>{value}</span>
-                        </div>
-                      ))}
-
-                      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", paddingTop: "var(--space-1)" }}>
-                        <span style={{ fontWeight: 700, fontSize: "1.1rem" }}>Total à Payer</span>
-                        <span style={{ fontWeight: 800, fontSize: "1.5rem", color: "var(--primary)" }}>
-                          {totalPrice} MAD
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginBottom: "var(--space-5)" }}>
-                    {onlinePayment
-                      ? "Vous allez être redirigé vers la page de paiement sécurisée de Chaabi Payment. Le créneau est retenu pendant 15 minutes."
-                      : "Le paiement s’effectue à l’accueil du club."}
-                  </p>
-                  <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginTop: "calc(-1 * var(--space-4))", marginBottom: "var(--space-5)" }}>
-                    {onlinePayment
-                      ? "Pour annuler une réservation payée, contactez le club. "
-                      : "Annulation en ligne possible jusqu’à 24h avant le créneau. "}
-                    En confirmant, vous acceptez les <Link href="/cgu" target="_blank" style={{ color: "var(--primary)", fontWeight: 600, textDecoration: "underline" }}>Conditions Générales d&apos;Utilisation</Link>.
-                  </p>
-
-                  <div className="step-actions">
-                    <button onClick={handleBack} disabled={isBooking} className="btn-back">
-                      <ChevronLeft size={16} /> Retour
-                    </button>
-                    <button
-                      onClick={handleConfirm}
-                      className="btn-primary"
-                      disabled={isBooking}
-                      style={{ minWidth: "180px" }}
-                    >
-                      {isBooking
-                        ? <span style={{ display: "flex", gap: "8px" }}><Loader2 size={16} className="spin-icon" /> En cours…</span>
-                        : onlinePayment ? "Payer en ligne" : "Confirmer la Réservation"}
-                    </button>
-                  </div>
+                  <BookingReview
+                    courtName={selectedCourtData?.name ?? ""}
+                    date={selectedDate}
+                    time={selectedTime}
+                    playerCount={playerCount}
+                    player={{ ...info, email: sessionUser?.email || info.email }}
+                    totalPrice={totalPrice}
+                    onlinePayment={onlinePayment}
+                    isBooking={isBooking}
+                    onBack={handleBack}
+                    onConfirm={handleConfirm}
+                  />
                 </motion.div>
               )}
 

@@ -1,4 +1,4 @@
-import { CHAABI_ORDER_PATTERN, getChaabiConfig } from "@/lib/chaabiPayment";
+import { CHAABI_ORDER_PATTERN, getChaabiConfig } from "@/features/payments/chaabi";
 
 function returnToResult(request: Request) {
   const config = getChaabiConfig();

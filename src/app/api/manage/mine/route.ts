@@ -1,6 +1,6 @@
-import { supabaseAdmin } from "@/lib/supabaseAdmin";
-import { getUserFromRequest } from "@/lib/userAuth";
-import { type BookingRow, publicBookingColumns, toPublicBooking } from "@/lib/bookingPolicy";
+import { supabaseAdmin } from "@/lib/supabase/admin";
+import { getUserFromRequest } from "@/lib/auth/player";
+import { type BookingRow, publicBookingColumns, toPublicBooking } from "@/features/booking-management/policy";
 
 // Bookings of the logged-in player (matched on account e-mail).
 export async function GET(request: Request) {

@@ -4,8 +4,8 @@ import {
   ADMIN_SESSION_MAX_AGE_SECONDS,
   checkAdminPassword,
   createSessionToken,
-} from "@/lib/adminAuth";
-import { clientIp, rateLimited } from "@/lib/bookingPolicy";
+} from "@/lib/auth/admin";
+import { clientIp, rateLimited } from "@/lib/http/rate-limit";
 
 export async function POST(request: Request) {
   if (rateLimited(`admin-login:${clientIp(request)}`, 5, 15 * 60 * 1000)) {
