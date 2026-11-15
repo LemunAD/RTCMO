@@ -1,5 +1,6 @@
 import { supabaseAdmin as supabase } from "@/lib/supabaseAdmin";
 import { COURT_IDS } from "@/lib/constants";
+import { chaabiConfigured } from "@/lib/chaabiPayment";
 
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -21,6 +22,14 @@ export async function GET(request: Request) {
 
   if (!COURT_IDS.includes(Number(courtId) as (typeof COURT_IDS)[number])) {
     return Response.json({ error: "Invalid court_id" }, { status: 400 });
+  }
+
+  if (chaabiConfigured()) {
+    const { error } = await supabase.rpc("expire_chaabi_checkout_holds");
+    if (error) {
+      console.error("Checkout hold expiry failed", error.code);
+      return Response.json({ error: "Impossible de vérifier les créneaux." }, { status: 503 });
+    }
   }
 
   let query = supabase

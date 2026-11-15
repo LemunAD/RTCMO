@@ -50,7 +50,7 @@ export async function PATCH(request: Request, ctx: Ctx) {
     .eq("id", id);
 
   if (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+    return Response.json({ error: error.message }, { status: error.code === "PT409" ? 409 : 500 });
   }
 
   return Response.json({ success: true });
@@ -69,7 +69,7 @@ export async function DELETE(_request: Request, ctx: Ctx) {
   const { error } = await supabaseAdmin.from("bookings").delete().eq("id", id);
 
   if (error) {
-    return Response.json({ error: error.message }, { status: 500 });
+    return Response.json({ error: error.message }, { status: error.code === "PT409" ? 409 : 500 });
   }
 
   return Response.json({ success: true });

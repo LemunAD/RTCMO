@@ -309,7 +309,12 @@ function BookingsView() {
       if (res.ok) {
         setBookings(prev => prev.filter(b => b.id !== id));
         setTotal(prev => prev - 1);
+      } else {
+        const data = await res.json().catch(() => ({}));
+        alert(data.error || "Impossible de supprimer cette réservation.");
       }
+    } catch {
+      alert("Impossible de supprimer cette réservation : erreur réseau.");
     } finally { setConfirmDeleteId(null); }
   };
 

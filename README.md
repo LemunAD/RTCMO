@@ -24,6 +24,16 @@ Copy `.env.example` to `.env.local` and fill in your Supabase project's URL/anon
 
 Apply `supabase_fix_cancelled_slots.sql` in Supabase before deploying the booking API. It installs the weekly booking limit and enforces unique active slots and booking references. If it fails because of duplicate references or active slots, reconcile the affected rows before rerunning it.
 
+## Chaabi Payment
+
+1. In the sandbox database, apply `supabase_fix_cancelled_slots.sql`, `supabase_lock_bookings.sql`, and then `supabase_chaabi_payments.sql`. Deploy with `SUPABASE_SERVICE_ROLE_KEY` set so the server can manage the locked bookings table.
+2. Set `CHAABI_GATEWAY_URL`, `CHAABI_CLIENT_ID`, and `CHAABI_STORE_KEY` for the same merchant environment. Set `CHAABI_SITE_URL` to the public HTTPS origin of the deployment. Chaabi Payment must be able to POST to `/api/payments/chaabi/callback` without a deployment login or redirect. Keep the store key server-side.
+3. Set `CHAABI_PAYMENTS_ENABLED=true`. Test approved, declined, retried, and abandoned payments against the sandbox tenant before enabling production credentials. Check that approved transactions reach **POST** in Merchant Center.
+
+Checkout uses CMI's hosted `PreAuth` flow with ver3 signatures. The bank's signed authorization updates the reservation and the callback returns `ACTION=POSTAUTH` to request capture. The return page reads the reservation status. Check Merchant Center for capture and settlement confirmation, or to handle refunds and voids. The booking screen retains the slot for 15 minutes. Availability and new bookings release expired holds, and a late authorization cannot capture them.
+
+Leave payment disabled to keep payment at the club. When disabling an active integration, keep the merchant configuration in place until outstanding checkout holds and callbacks are reconciled.
+
 ## Admin panel
 
 Reservations can be reviewed and cancelled at `/admin`. It's gated by `ADMIN_PASSWORD` (a single shared password, no per-user accounts) and is not linked from the public site or search-indexed — visit the URL directly.
