@@ -55,12 +55,12 @@ export async function POST(request: Request) {
     return Response.json({ error: reason }, { status: 403 });
   }
 
-  // Guard on status so a concurrent admin change to "paid" is never overwritten.
+  // Match the pending policy for legacy null statuses and guard concurrent changes.
   const { data: updated, error: updateError } = await supabaseAdmin
     .from("bookings")
     .update({ status: "cancelled" })
     .eq("id", booking.id)
-    .eq("status", "pending")
+    .or("status.eq.pending,status.is.null")
     .select(publicBookingColumns())
     .maybeSingle()
     .overrideTypes<BookingRow, { merge: false }>();

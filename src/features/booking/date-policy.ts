@@ -47,10 +47,6 @@ function slotMinutes(date: string, time: string): number {
   return Date.UTC(y, m - 1, d, hh, mm) / 60000;
 }
 
-export function minutesUntilSlot(date: string, time: string): number {
-  return slotMinutes(date, time) - clubNowMinutes();
-}
-
 export function hasSlotStarted(date: string, time: string): boolean {
-  return minutesUntilSlot(date, time) <= 0;
+  return slotMinutes(date, time) <= clubNowMinutes();
 }

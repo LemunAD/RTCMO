@@ -1,8 +1,6 @@
-import { minutesUntilSlot } from "@/features/booking/date-policy";
+import { hasSlotStarted } from "@/features/booking/date-policy";
 import { chaabiConfigured } from "@/features/payments/chaabi";
 import type { ManagedBooking } from "./types";
-
-export const CANCEL_CUTOFF_HOURS = 24;
 
 export function publicBookingColumns() {
   const columns = "booking_ref, court_id, booking_date, time_slot, player_count, total_price, full_name, phone, email, status, other_players";
@@ -37,11 +35,10 @@ export function evaluateCancellation(booking: {
       reason: "Le paiement est en cours de vérification. Merci de contacter le club pour toute modification.",
     };
   }
-  const minutesLeft = minutesUntilSlot(booking.booking_date, booking.time_slot);
-  if (minutesLeft <= CANCEL_CUTOFF_HOURS * 60) {
+  if (hasSlotStarted(booking.booking_date, booking.time_slot)) {
     return {
       cancellable: false,
-      reason: `L'annulation en ligne n'est possible que jusqu'à ${CANCEL_CUTOFF_HOURS}h avant le début du créneau. Merci de contacter le club.`,
+      reason: "Le créneau a déjà commencé. Merci de contacter le club.",
     };
   }
   return { cancellable: true, reason: null };
