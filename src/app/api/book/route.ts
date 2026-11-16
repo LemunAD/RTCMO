@@ -10,6 +10,7 @@ import {
 } from "@/features/booking/constants";
 import { hasSlotStarted, isBeyondBookingWindow } from "@/features/booking/date-policy";
 import { getUserFromRequest } from "@/lib/auth/player";
+import { type BookingRow, publicBookingColumns, toPublicBooking } from "@/features/booking-management/policy";
 import {
   CHAABI_HOLD_MS,
   chaabiConfigured,
@@ -136,6 +137,12 @@ export async function POST(request: Request) {
     return Response.json({ error: "Votre adresse e-mail est trop longue pour le paiement en ligne." }, { status: 400 });
   }
 
+  const { data: quotaReady, error: quotaError } = await supabase.rpc("booking_quota_ready");
+  if (quotaError || quotaReady !== true) {
+    console.error("Booking quota unavailable", quotaError?.code ?? "disabled");
+    return Response.json({ error: "La réservation est temporairement indisponible." }, { status: 503 });
+  }
+
   if (chaabiConfigured()) {
     const { error } = await supabase.rpc("expire_chaabi_checkout_holds");
     if (error) {
@@ -154,14 +161,20 @@ export async function POST(request: Request) {
     const { data, error } = await supabase
       .from("bookings")
       .insert({ ...booking, ...payment, booking_ref: generateRef() })
-      .select("id, booking_ref")
-      .single();
+      .select(`id, ${publicBookingColumns()}`)
+      .single()
+      .overrideTypes<BookingRow & { id: number | string }, { merge: false }>();
 
     if (!error) {
       if (checkout) {
         return Response.json({ success: true, checkout: { action: checkout.action, fields: checkout.fields } });
       }
-      return Response.json({ success: true, bookingRef: data.booking_ref, bookingId: data.id });
+      return Response.json({
+        success: true,
+        bookingRef: data.booking_ref,
+        bookingId: data.id,
+        booking: toPublicBooking(data),
+      });
     }
 
     if (error.code === "PT429") {

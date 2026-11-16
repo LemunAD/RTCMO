@@ -25,7 +25,9 @@ import { format, isWeekend } from "date-fns";
 import { fr } from "date-fns/locale";
 import { COURTS, getBookingPrice } from "../constants";
 import { AccountDrawer } from "@/features/booking-management/components/account-drawer";
+import { BookingCard } from "@/features/booking-management/components/booking-card";
 import { ManageBookingModal } from "@/features/booking-management/components/manage-booking-modal";
+import type { ManagedBooking } from "@/features/booking-management/types";
 import { submitHostedCheckout } from "@/features/payments/submit-hosted-checkout";
 import { useBookingSchedule } from "../hooks/use-booking-schedule";
 import { BookingReview } from "./booking-review";
@@ -69,7 +71,7 @@ export default function BookingFlow({ onlinePayment }: { onlinePayment: boolean 
 
   // Submission
   const [isBooking, setIsBooking]         = useState(false);
-  const [bookingRef, setBookingRef]       = useState<string | null>(null);
+  const [confirmedBooking, setConfirmedBooking] = useState<ManagedBooking | null>(null);
   const [error, setError]                 = useState<string | null>(null);
 
   // Self-service panels
@@ -363,7 +365,7 @@ export default function BookingFlow({ onlinePayment }: { onlinePayment: boolean 
         return;
       }
 
-      setBookingRef(data.bookingRef);
+      setConfirmedBooking(data.booking);
       setStep(TOTAL_STEPS + 1);
     } catch {
       setError("Erreur réseau. Veuillez vérifier votre connexion et réessayer.");
@@ -376,7 +378,7 @@ export default function BookingFlow({ onlinePayment }: { onlinePayment: boolean 
     setStep(1);
     setSelectedCourt(null);
     setSelectedTime(null);
-    setBookingRef(null);
+    setConfirmedBooking(null);
     setError(null);
     setAuthMode(null);
     setLoginPassword("");
@@ -780,7 +782,7 @@ export default function BookingFlow({ onlinePayment }: { onlinePayment: boolean 
 
                   <div style={{ background: "rgba(15,81,50,0.06)", padding: "10px 14px", borderRadius: "8px", color: "var(--primary)", fontSize: "0.82rem", marginBottom: "var(--space-4)", display: "flex", alignItems: "center", gap: "8px" }}>
                     <CheckCircle2 size={16} style={{ flexShrink: 0 }} />
-                    <span>Limite : <strong>2 réservations par semaine</strong> · Annulation en ligne jusqu&apos;à <strong>24h avant</strong>.</span>
+                    <span>Limite : <strong>2 réservations par semaine</strong>. Un créneau non payé peut être annulé avant son début.</span>
                   </div>
 
                   <p className="section-label">Joueur Responsable de la Réservation</p>
@@ -828,24 +830,24 @@ export default function BookingFlow({ onlinePayment }: { onlinePayment: boolean 
               )}
 
               {/* ━━━ SUCCESS ━━━ */}
-              {step === 5 && (
+              {step === 5 && confirmedBooking && (
                 <motion.div key="success" initial={{ opacity: 0, scale: 0.92 }} animate={{ opacity: 1, scale: 1 }} style={{ textAlign: "center", padding: "var(--space-6) var(--space-3)" }}>
                   <motion.div initial={{ scale: 0 }} animate={{ scale: 1 }} className="success-icon">
                     <CheckCircle2 size={56} />
                   </motion.div>
-                  <h2 style={{ fontSize: "2.25rem", color: "var(--primary)", marginBottom: "var(--space-2)" }}>Réservation Confirmée !</h2>
+                  <h2 style={{ fontSize: "2.25rem", color: "var(--primary)", marginBottom: "var(--space-2)" }}>
+                    {confirmedBooking.status === "cancelled" ? "Réservation annulée" : "Réservation confirmée"}
+                  </h2>
                   <p style={{ color: "var(--text-muted)", maxWidth: "380px", margin: "0 auto var(--space-2)", lineHeight: 1.7 }}>
-                    <strong>{info.fullName}</strong>, votre réservation est enregistrée.
+                    {confirmedBooking.status === "cancelled"
+                      ? "Le créneau est de nouveau disponible."
+                      : "Votre créneau est réservé. Le paiement se fait à l’accueil du club."}
                   </p>
-                  {bookingRef && <div className="booking-ref-badge">Réf : <strong>{bookingRef}</strong></div>}
-
-                  <div style={{ display: "flex", gap: "10px", justifyContent: "center", flexWrap: "wrap", margin: "var(--space-4) 0" }}>
-                    <SummaryBadge label="Date" value={format(selectedDate, "d MMM yyyy", { locale: fr })} />
-                    <SummaryBadge label="Horaire" value={selectedTime ?? ""} />
-                    <SummaryBadge label="Total" value={`${totalPrice} MAD`} />
+                  <div style={{ maxWidth: 420, margin: "var(--space-4) auto", textAlign: "left" }}>
+                    <BookingCard booking={confirmedBooking} onChanged={setConfirmedBooking} />
                   </div>
 
-                  <button onClick={handleReset} className="btn-primary">Réserver un Autre Terrain</button>
+                  <button onClick={handleReset} className="btn-back">Faire une autre réservation</button>
                 </motion.div>
               )}
 

@@ -63,7 +63,7 @@ export function BookingReview({
       <p style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginTop: "calc(-1 * var(--space-4))", marginBottom: "var(--space-5)" }}>
         {onlinePayment
           ? "Pour annuler une réservation payée, contactez le club. "
-          : "Annulation en ligne possible jusqu’à 24h avant le créneau. "}
+          : "La réservation non payée peut être annulée en ligne avant le début du créneau. "}
         En confirmant, vous acceptez les <Link href="/cgu" target="_blank" style={{ color: "var(--primary)", fontWeight: 600, textDecoration: "underline" }}>Conditions Générales d&apos;Utilisation</Link>.
       </p>
 

@@ -3,7 +3,7 @@
 ## Application and database
 
 1. Use the repository's Node.js version from [`.nvmrc`](../.nvmrc). Configure environment variables from [`.env.example`](../.env.example). Use separate Supabase projects and Chaabi merchant settings for sandbox and production.
-2. Follow the [database setup](../supabase/README.md) for the target Supabase project. Set the correct site URL and allowed redirect URLs in Supabase Auth for email verification and password recovery.
+2. Follow the [database setup](../supabase/README.md) for the target Supabase project. Reapply the booking constraints script if needed before deploying an API that checks quota readiness. Set the correct site URL and allowed redirect URLs in Supabase Auth for email verification and password recovery.
 3. Keep `CHAABI_PAYMENTS_ENABLED=false` on production until the sandbox flow is verified. Sanity-check booking availability, verified-player booking, and staff access against the intended deployment.
 
 ## Chaabi sandbox and rollout

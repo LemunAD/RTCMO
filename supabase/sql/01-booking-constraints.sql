@@ -79,4 +79,24 @@ CREATE TRIGGER enforce_booking_weekly_quota
 BEFORE INSERT ON public.bookings
 FOR EACH ROW EXECUTE FUNCTION public.enforce_booking_weekly_quota();
 
+CREATE OR REPLACE FUNCTION public.booking_quota_ready()
+RETURNS boolean
+LANGUAGE sql
+STABLE
+SET search_path = ''
+AS $$
+    SELECT EXISTS (
+        SELECT 1
+        FROM pg_trigger
+        WHERE tgrelid = 'public.bookings'::regclass
+          AND tgname = 'enforce_booking_weekly_quota'
+          AND tgfoid = 'public.enforce_booking_weekly_quota()'::regprocedure
+          AND tgenabled IN ('O', 'A')
+          AND NOT tgisinternal
+    );
+$$;
+
+REVOKE ALL ON FUNCTION public.booking_quota_ready() FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.booking_quota_ready() TO service_role;
+
 COMMIT;

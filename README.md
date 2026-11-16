@@ -7,7 +7,7 @@ RTCMO Padel is the French-language court booking site for the Royal Tennis Club 
 1. **Sign in.** A player creates an account and verifies their email, or signs in with an existing verified account.
 2. **Choose a court and time.** The calendar shows available 90-minute slots in a daily or weekly view. Players can book up to 14 days ahead and hold up to two active bookings per calendar week, Monday through Sunday.
 3. **Review and confirm.** The player chooses singles or doubles and checks their contact information. The price is per court in either format. It costs **200 MAD on weekdays** and **240 MAD on weekends**.
-4. **Manage the reservation.** Players can find their bookings under **Espace Joueur** or look up a reservation using its reference and the phone number used to book it. Online cancellation is available for unpaid bookings more than 24 hours before play. For paid bookings or payments under review, players contact the club.
+4. **Manage the reservation.** Players can cancel an unpaid booking from the confirmation screen or **Espace Joueur** any time before play starts. They can also look up a reservation using its reference and the phone number used to book it. For paid bookings or payments under review, players contact the club.
 
 ## Payments and staff operations
 

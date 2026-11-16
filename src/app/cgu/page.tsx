@@ -182,8 +182,8 @@ const sections: Section[] = [
       <>
         <UL
           items={[
-            <><strong>Annulation par l&apos;Utilisateur</strong> : possible depuis le site (« Gérer ma réservation » ou « Espace Joueur ») jusqu&apos;à <strong>24 heures avant</strong> le début du créneau (heure du Maroc). Passé ce délai, aucune annulation n&apos;est possible et la Réservation reste due.</>,
-            <><strong>Remboursement</strong> : une Réservation payée en ligne et annulée dans les délais est remboursée <strong>intégralement</strong>, sur la carte utilisée pour le paiement, sans frais. Le délai d&apos;affichage du crédit dépend de la banque émettrice et peut atteindre [À COMPLÉTER — ex. 10] jours ouvrés après la demande.</>,
+            <><strong>Annulation par l&apos;Utilisateur</strong> : une réservation sans paiement autorisé ou confirmé peut être annulée en ligne dès sa création et avant le début du créneau (heure du Maroc). Pour une réservation déjà réglée ou un paiement en cours de vérification, contactez le Club.</>,
+            <><strong>Remboursement</strong> : une Réservation payée en ligne et annulée au moins 24 heures avant le début du créneau est remboursée <strong>intégralement</strong>, sur la carte utilisée pour le paiement, sans frais. Le délai d&apos;affichage du crédit dépend de la banque émettrice et peut atteindre [À COMPLÉTER — ex. 10] jours ouvrés après la demande.</>,
             <><strong>Absence (no-show) ou annulation tardive</strong> : aucun remboursement.</>,
             <><strong>Annulation par le Club</strong> : remboursement intégral ou proposition d&apos;un autre créneau (voir article 5).</>,
             <><strong>Intempéries</strong> : pour le terrain extérieur, le Club peut proposer un report ou un remboursement si le jeu est impossible.</>,
